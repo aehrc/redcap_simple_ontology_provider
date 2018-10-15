@@ -1,0 +1,102 @@
+{
+   "name": "Simple Ontology Module",
+   "namespace": "AEHRC\\SimpleOntologyExternalModule", 
+   "description": "This module provides site wide ontology lookup, and was written to test the ontology provider mechanism.",
+   "authors": [
+       {
+            "name": "David Conlan",
+            "email": "david.conlan@csiro.au",
+            "institution": "The Australian E-Heath Research Centre"
+        }
+    ],
+    "permissions": [
+        "redcap_every_page_before_render"
+    ],
+    "enable-every-page-hooks-on-system-pages": false,
+    "system-settings" : [
+        {
+         "key": "site-category-list",
+         "name": "List of Ontolgies for the site",
+         "required": false,
+         "type": "sub_settings",
+         "repeatable":true,
+         "sub_settings":[
+            {
+               "key": "site-category",
+               "name": "Ontology Category",
+               "required": true,
+               "type": "text"
+            },
+            {
+               "key": "site-name",
+               "name": "Ontology Name",
+               "required": true,
+               "type": "text"
+            },
+            {
+               "key": "site-values-type",
+               "name": "Values Type",
+               "required": true,
+               "type": "dropdown",
+               "choices": [
+                  { "value": "list", "name": "list of values"},
+                  { "value": "bar", "name": "Bar separated - value|display"},
+                  { "value": "json", "name": "json array of objects with code and display"}
+               ]
+            },
+            {
+               "key": "site-values",
+               "name": "Values",
+               "required": true,
+               "type": "textarea"
+            }
+         ]
+        }
+	 ],
+   "project-settings" : [
+        {
+         "key": "project-category-list",
+         "name": "List of Ontolgies for the project",
+         "required": false,
+         "type": "sub_settings",
+         "repeatable":true,
+         "sub_settings":[
+            {
+               "key": "project-category",
+               "name": "Ontology Category",
+               "required": true,
+               "type": "text"
+            },
+            {
+               "key": "project-name",
+               "name": "Ontology Name",
+               "required": true,
+               "type": "text"
+            },
+            {
+               "key": "project-values-type",
+               "name": "Values Type",
+               "required": true,
+               "type": "dropdown",
+               "choices": [
+                  { "value": "list", "name": "list of values"},
+                  { "value": "bar", "name": "Bar separated - value|display"},
+                  { "value": "json", "name": "json array of objects with code and display"}
+               ]
+            },
+            {
+               "key": "project-values",
+               "name": "Values",
+               "required": true,
+               "type": "textarea"
+            }
+         ]
+        }
+	],
+  "compatibility": {
+    "php-version-min" : "5.4.0",
+    "redcap-version-min": "8.8.1"
+  }
+  
+   
+}
