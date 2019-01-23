@@ -34,6 +34,23 @@
                "type": "text"
             },
             {
+				"key" : "site-return-no-result",
+				"name" : "Return 'No Results Found'",
+				"type" : "checkbox"
+			},
+			{
+				"key" : "site-no-result-label",
+				"name" : "No Results Label",
+				"type" : "text",
+				"default" : "No Results Found"
+			},
+			{
+				"key" : "site-no-result-code",
+				"name" : "No Results Code",
+				"type" : "text",
+				"default" : "_NRF_"
+			},
+            {
                "key": "site-values-type",
                "name": "Values Type",
                "required": true,
@@ -73,6 +90,23 @@
                "required": true,
                "type": "text"
             },
+            {
+				"key" : "project-return-no-result",
+				"name" : "Return 'No Results Found'",
+				"type" : "checkbox"
+			},
+			{
+				"key" : "project-no-result-label",
+				"name" : "No Results Label",
+				"type" : "text",
+				"default" : "No Results Found"
+			},
+			{
+				"key" : "project-no-result-code",
+				"name" : "No Results Code",
+				"type" : "text",
+				"default" : "_NRF_"
+			},
             {
                "key": "project-values-type",
                "name": "Values Type",

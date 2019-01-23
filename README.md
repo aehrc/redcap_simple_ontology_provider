@@ -22,6 +22,9 @@ Any number of ontologies can be added, using the follow fields:
 
  * `Ontology Category` - This is the internal name for the ontology, and should be unique for the ontology.
  * `Ontology Name` - This is the name that will be presented when choosing the ontology in the online designer.
+ * `Return 'No Results Found'` - This check box is used to indicate that a special value should be returned if no values are returned by a search. The purpose of this is to allow the option to be selected and then have an additional field get activated via branching logic to receive additional data. It can also be used to fall  back to some default value.
+ * `No Results Label` - The display value for the special value returned if the `return no results found` option is enabled.
+ * `No Results Code` - The value for the special value returned if the `return no results found` option is enabled.
  * `Values Type` - This is used to indicate how the values will be provided. The options are:
     * `list` - A list of values, seperated by a new line. The value and display will be the same value.
     * `bar` - A list of value|display using a '|' as the seperator. Entries are seperated with a new line.

@@ -49,7 +49,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
             || strpos($category, "'") !== false
             || strpos($category, '"') !== false
             ){
-          $errors .= "Category has illigal characters - ".$category."\n";
+          $errors .= "Category has illegal characters - ".$category."\n";
         }
       }
      $projectCategory = $settings['project-category'];
@@ -58,18 +58,18 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
              || strpos($category, "'") !== false
             || strpos($category, '"') !== false
              ){
-          $errors .= "Category has illigal characters - ".$category."\n";
+          $errors .= "Category has illegal characters - ".$category."\n";
         }
       }
      // make sure name has no markup
      foreach($settings['site-name'] as $name){
         if ($name != strip_tags($name)){
-          $errors .= "Name has illigal characters - ".$name."\n";
+          $errors .= "Name has illegal characters - ".$name."\n";
         }
       }
      foreach($settings['project-name'] as $name){
         if ($name != strip_tags($name)){
-          $errors .= "Name has illigal characters - ".$name."\n";
+          $errors .= "Name has illegal characters - ".$name."\n";
         }
       }
 
@@ -102,6 +102,61 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
           }
         }
       }
+      
+      $siteCNRCode = $settings['site-no-result-code'];
+      $siteCNRLabel = $settings['site-no-result-label'];
+ 
+      foreach($settings['site-return-no-result'] as $key=>$returnNoResult){
+          if ($returnNoResult){
+              // check we have a code and label
+              $label = trim($siteCNRLabel[$key]);
+              $code = trim($siteCNRCode[$key]);
+              if ($label === ''){
+                  $errors .= "No Result Label is required [".$siteCategory[$key]. "]\n";
+              }
+              else if ($label != strip_tags($label)){
+                  $errors .= "No Results Label has illegal characters -[".$siteCategory[$key]. "] ".$label."\n";
+              }
+              if ($code === ''){
+                  $errors .= "No Result Code is required [".$siteCategory[$key]. "]\n";
+              }
+              else if ($code != strip_tags($code)
+                  || strpos($code, "'") !== false
+                  || strpos($code, '"') !== false
+                  ){
+                      $errors .= "No Results Code has illegal characters [".$siteCategory[$key]. "]- ".$code."\n";
+              }
+          }
+      }
+      
+      $projectCNRCode = $settings['project-no-result-code'];
+      $projectCNRLabel = $settings['project-no-result-label'];
+      
+      foreach($settings['project-return-no-result'] as $key=>$returnNoResult){
+          if ($returnNoResult){
+              // check we have a code and label
+              $label = trim($projectCNRLabel[$key]);
+              $code = trim($projectCNRCode[$key]);
+              if ($label === ''){
+                  $errors .= "No Result Label is required [".$projectCategory[$key]. "]\n";
+              }
+              else if ($label != strip_tags($label)){
+                  $errors .= "No Results Label has illegal characters [".$projectCategory[$key]. "]- ".$label."\n";
+              }
+              
+              if ($code === ''){
+                  $errors .= "No Result Code is required [".$projectCategory[$key]. "]\n";
+              }
+              else if ($code != strip_tags($code)
+                  || strpos($code, "'") !== false
+                  || strpos($code, '"') !== false
+                  ){
+                      $errors .= "No Results Code has illegal characters [".$projectCategory[$key]. "]- ".$code."\n";
+              }
+          }
+      }
+      
+      
      return $errors;
   }
 
@@ -125,6 +180,9 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
       $key = 'site-category-list';
       $keys = [ 'site-category' => 'category',
                 'site-name' => 'name',
+                'site-return-no-result' => 'return-no-result',
+                'site-no-result-label' => 'no-result-label',
+                'site-no-result-code' => 'no-result-code',
                 'site-values-type' => 'values-type',
                 'site-values' => 'values' ];
       $subSettings = [];
@@ -144,6 +202,9 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
       $key = 'project-category-list';
       $keys = [ 'project-category' => 'category',
                 'project-name' => 'name',
+                'project-return-no-result' => 'return-no-result',
+                'project-no-result-label' => 'no-result-label',
+                'project-no-result-code' => 'no-result-code',
                 'project-values-type' => 'values-type',
                 'project-values' => 'values' ];
       $subSettings = [];
@@ -281,7 +342,17 @@ EOD;
       $desc = \REDCap::escapeHtml($val['display']);
       $results[$code] = $desc;
     }
-
+    
+    if (!$results){
+        // no results found
+        $return_no_result = $categoryData['return-no-result'];
+        if ($return_no_result){
+            $no_result_label = $categoryData['no-result-label'];
+            $no_result_code = $categoryData['no-result-code'];
+            $results[$no_result_code] = $no_result_label;
+        }
+    }
+    
     $result_limit = (is_numeric($result_limit) ? $result_limit : 20);
 		// Return array of results
 		return array_slice($results, 0, $result_limit, true);
