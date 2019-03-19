@@ -321,10 +321,12 @@ EOD;
     // we want matches that start with search term before matches containing search term
     $startResults = array();
     $containsResults = array();
+    $strippedSearchTerm = $this->skip_accents($search_term);
     foreach($values as $val){
       $code = $val['code'];
       $desc = $val['display'];
-      $pos = stripos($desc, $search_term);
+      $strippedDesc = $this->skip_accents($desc);
+      $pos = stripos($strippedDesc, $strippedSearchTerm);
       if ($pos !== FALSE){
         if ($pos == 0){
           $startResults[] = $val;
@@ -410,5 +412,15 @@ EOD;
     return $value;
   }
 
+  function skip_accents( $str, $charset='utf-8' ) {
+ 
+    $str = htmlentities( $str, ENT_NOQUOTES, $charset );
+    
+    $str = preg_replace( '#&([A-za-z])(?:acute|cedil|caron|circ|grave|orn|ring|slash|th|tilde|uml);#', '\1', $str );
+    $str = preg_replace( '#&([A-za-z]{2})(?:lig);#', '\1', $str );
+    $str = preg_replace( '#&[^;]+;#', '', $str );
+    
+    return $str;
+  }
   
 }

@@ -9,7 +9,7 @@ It can be configured to provide site or project wide collection of values that c
 
 
 ## Using the module
-The module code needs to be places in a directory modules/simple-ontoloy_v<version>
+The module code needs to be places in a directory modules/simple-ontoloy_v0.2
 
 The module should then show up as an external module.
 
