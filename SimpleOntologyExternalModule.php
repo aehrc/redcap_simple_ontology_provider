@@ -412,6 +412,12 @@ EOD;
     return $value;
   }
 
+  /*
+   * Function taken from Blog posting :
+   *   
+   *   Fonction PHP pour supprimer les accents - Murviel Info
+   *   https://murviel-info-beziers.com/fonction-php-supprimer-accents/ 
+   */
   function skip_accents( $str, $charset='utf-8' ) {
  
     $str = htmlentities( $str, ENT_NOQUOTES, $charset );
