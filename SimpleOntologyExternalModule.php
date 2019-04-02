@@ -318,25 +318,35 @@ EOD;
       }
     }
     //error_log(print_r($values, TRUE));
-    // we want matches that start with search term before matches containing search term
-    $startResults = array();
-    $containsResults = array();
+    $wordResults = array();
     $strippedSearchTerm = $this->skip_accents($search_term);
+    $searchWords = explode(' ', $strippedSearchTerm);
     foreach($values as $val){
       $code = $val['code'];
       $desc = $val['display'];
       $strippedDesc = $this->skip_accents($desc);
-      $pos = stripos($strippedDesc, $strippedSearchTerm);
-      if ($pos !== FALSE){
-        if ($pos == 0){
-          $startResults[] = $val;
-        }
-        else {
-          $containsResults[] = $val;
-        }
+      $foundCount=0;
+      $minPos=99;
+      foreach($searchWords as $word){
+          $pos = stripos($strippedDesc, $word);
+          if ($pos !== FALSE){
+              $foundCount++;
+              if ($pos < $minPos){
+                  $minPos = $pos;
+              }
+          }
+      }
+      if ($foundCount > 0){
+          $wordResults[] = array( 'foundCount' => $foundCount, 'minPos' => $minPos, 'value' => $val);
       }
     }
-    $mresults = array_merge($startResults, $containsResults);
+    $fcColumn  = array_column($wordResults, 'foundCount');
+    $posColumn  = array_column($wordResults, 'minPos');
+
+    // sort on word match count then on closest to start of string
+    array_multisort($fcColumn, SORT_DESC, $posColumn, SORT_ASC, $wordResults);
+    $mresults = array_column($wordResults, 'value');
+    
     $results = array();
     foreach($mresults as $val){
       // make sure result is escaped..
