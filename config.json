@@ -16,7 +16,7 @@
     "system-settings" : [
         {
          "key": "site-category-list",
-         "name": "List of Ontolgies for the site",
+         "name": "List of Ontologies for the site",
          "required": false,
          "type": "sub_settings",
          "repeatable":true,
@@ -73,7 +73,7 @@
    "project-settings" : [
         {
          "key": "project-category-list",
-         "name": "List of Ontolgies for the project",
+         "name": "List of Ontologies for the project",
          "required": false,
          "type": "sub_settings",
          "repeatable":true,
