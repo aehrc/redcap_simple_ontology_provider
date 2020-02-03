@@ -36,7 +36,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
       $manager->addProvider($this);
   }
 
-  public function redcap_every_page_before_render (int $project_id ){
+  public function redcap_every_page_before_render ($project_id){
   }
 
   public function validateSettings($settings){
@@ -48,7 +48,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
         if ($category != strip_tags($category) 
             || strpos($category, "'") !== false
             || strpos($category, '"') !== false
-            ){
+	){
           $errors .= "Category has illegal characters - ".$category."\n";
         }
       }
