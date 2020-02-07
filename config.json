@@ -2,11 +2,20 @@
    "name": "Simple Ontology Module",
    "namespace": "AEHRC\\SimpleOntologyExternalModule", 
    "description": "This module provides site wide ontology lookup, and was written to test the ontology provider mechanism.",
+   "documentation": "README.md",
+   "tt_name": "module_name",
+   "tt_description": "module_description",
+   "tt_documentation": "doc_path",
    "authors": [
        {
             "name": "David Conlan",
             "email": "david.conlan@csiro.au",
             "institution": "The Australian E-Heath Research Centre"
+        },
+        {
+           "name": "Daniel Hinostroza, MD",
+           "email": "dhinostroza@gmail.com",
+           "institution": "Hospital de Especialidades Carlos Andrade Marín, Quito-Ecuador (Spanish Translation)"
         }
     ],
     "permissions": [
@@ -16,6 +25,7 @@
     "system-settings" : [
         {
          "key": "site-category-list",
+         "tt_name": "site_category_list",
          "name": "List of Ontologies for the site",
          "required": false,
          "type": "sub_settings",
@@ -23,46 +33,53 @@
          "sub_settings":[
             {
                "key": "site-category",
+               "tt_name": "site_category",
                "name": "Ontology Category",
                "required": true,
                "type": "text"
             },
             {
                "key": "site-name",
+               "tt_name": "site_name",
                "name": "Ontology Name",
                "required": true,
                "type": "text"
             },
             {
-				"key" : "site-return-no-result",
-				"name" : "Return 'No Results Found'",
-				"type" : "checkbox"
+				"key": "site-return-no-result",
+                "tt_name": "site_return_no_result",
+				"name": "Return 'No Results Found'",
+				"type": "checkbox"
 			},
 			{
 				"key" : "site-no-result-label",
+                "tt_name" : "site_no_result_label",
 				"name" : "No Results Label",
 				"type" : "text",
 				"default" : "No Results Found"
 			},
 			{
 				"key" : "site-no-result-code",
+                "tt_name" : "site_no_result_code",
 				"name" : "No Results Code",
 				"type" : "text",
 				"default" : "_NRF_"
 			},
             {
                "key": "site-values-type",
+               "tt_name": "site_values_type",
                "name": "Values Type",
                "required": true,
                "type": "dropdown",
                "choices": [
-                  { "value": "list", "name": "list of values"},
-                  { "value": "bar", "name": "Bar separated - value|display"},
-                  { "value": "json", "name": "json array of objects with code and display"}
+                  { "value": "list", "tt_name": "value_type_list", "name": "list of values"},
+                  { "value": "bar", "tt_name": "value_type_bar", "name": "Bar separated - value|display"},
+                  { "value": "json", "tt_name": "value_type_json", "name": "json array of objects with code and display"}
                ]
             },
             {
                "key": "site-values",
+               "tt_name": "site_values",
                "name": "Values",
                "required": true,
                "type": "textarea"
@@ -73,6 +90,7 @@
    "project-settings" : [
         {
          "key": "project-category-list",
+         "tt_name": "project_category_list",
          "name": "List of Ontologies for the project",
          "required": false,
          "type": "sub_settings",
@@ -80,46 +98,53 @@
          "sub_settings":[
             {
                "key": "project-category",
+               "tt_name": "project_category",
                "name": "Ontology Category",
                "required": true,
                "type": "text"
             },
             {
                "key": "project-name",
+               "tt_name": "project_name",
                "name": "Ontology Name",
                "required": true,
                "type": "text"
             },
             {
 				"key" : "project-return-no-result",
+                "tt_name" : "project_return_no_result",
 				"name" : "Return 'No Results Found'",
 				"type" : "checkbox"
 			},
 			{
 				"key" : "project-no-result-label",
+                "tt_name" : "project_no_result_label",
 				"name" : "No Results Label",
 				"type" : "text",
 				"default" : "No Results Found"
 			},
 			{
 				"key" : "project-no-result-code",
+                "tt_name" : "project_no_result_code",
 				"name" : "No Results Code",
 				"type" : "text",
 				"default" : "_NRF_"
 			},
             {
                "key": "project-values-type",
+               "tt_name": "project_values_type",
                "name": "Values Type",
                "required": true,
                "type": "dropdown",
                "choices": [
-                  { "value": "list", "name": "list of values"},
-                  { "value": "bar", "name": "Bar separated - value|display"},
-                  { "value": "json", "name": "json array of objects with code and display"}
+                  { "value": "list", "tt_name": "value_type_list", "name": "list of values"},
+                  { "value": "bar", "tt_name": "value_type_bar", "name": "Bar separated - value|display"},
+                  { "value": "json", "tt_name": "value_type_json", "name": "json array of objects with code and display"}
                ]
             },
             {
                "key": "project-values",
+               "tt_name": "project_values",
                "name": "Values",
                "required": true,
                "type": "textarea"

@@ -1,15 +1,20 @@
 # Simple Ontology External Module
 
-As part of release 8.8.1 of REDCap an extension point was added to allow external modules to become an 
-*'Ontology Provider'*. These act like the existing BioPortal ontology mechanism, but allow alternative sources.
-The main function of an ontology provider is to take a search term and return some match of code + display.
+This redcap external module allows the definition of a custom set of 'ontologies' which can be the be used to provide
+autocomplete functionality for a text field. Ontologies can be defined at a site or project level, and a default value
+can be specified to be returned if no match is found. Since version 0.3, rather then looking for an exact string match,
+the module will search for each word in the autocomplete query separately and return all matches sorted by found word 
+count then found position. 
 
-This module is a very simple example of an external module which provides this functionality. 
-It can be configured to provide site or project wide collection of values that can be referenced inside forms.
 
+Dr Daniel Hinostroza from Hospital de Especialidades Carlos Andrade Marín very kindly wrote a Spanish
+translation for this module, you can find the readme here: [Documentación española](?prefix=simple_ontology_provider&page=README.es.md)
+[Github Documentación española](https://github.com/aehrc/redcap_simple_ontology_provider/blob/v0.3.2/README.md)
+
+The module is licensed under CSIRO Open Source Software Licence Agreement (a variation of the BSD / MIT License).
 
 ## Using the module
-The module code needs to be places in a directory modules/simple-ontoloy_v0.2
+The module code needs to be placed in a directory modules/simple-ontoloy_v0.3.2
 
 The module should then show up as an external module.
 
@@ -22,12 +27,14 @@ Any number of ontologies can be added, using the follow fields:
 
  * `Ontology Category` - This is the internal name for the ontology, and should be unique for the ontology.
  * `Ontology Name` - This is the name that will be presented when choosing the ontology in the online designer.
- * `Return 'No Results Found'` - This check box is used to indicate that a special value should be returned if no values are returned by a search. The purpose of this is to allow the option to be selected and then have an additional field get activated via branching logic to receive additional data. It can also be used to fall  back to some default value.
+ * `Return 'No Results Found'` - This check box is used to indicate that a special value should be returned if no values
+  are returned by a search. The purpose of this is to allow the option to be selected and then have an additional field
+  get activated via branching logic to receive additional data. It can also be used to fall  back to some default value.
  * `No Results Label` - The display value for the special value returned if the `return no results found` option is enabled.
  * `No Results Code` - The value for the special value returned if the `return no results found` option is enabled.
  * `Values Type` - This is used to indicate how the values will be provided. The options are:
     * `list` - A list of values, seperated by a new line. The value and display will be the same value.
-    * `bar` - A list of value|display using a '|' as the seperator. Entries are seperated with a new line.
+    * `bar` - A list of value|display using a '|' as the seperator. Entries are separated with a new line.
     * `json` - A json array of objects with a code and display. The json can contain other fields, only code and display will be used. Example json:
 ```
 [
@@ -51,11 +58,37 @@ Any number of ontologies can be added, using the follow fields:
 ![SimpleOntology Settings](SimpleOntologySettings.png)
 
 
-The autocomplete implemented by the module will do a simple text search of the display text for the entered text. 
-It will place matching entries which start with the search string before those entries found with the text inside the display.
+The autocomplete implemented by the module will do a simple text search of the display text for the entered text.
+Since version 0.3, rather then looking for an exact string match, the module will search for each word in the 
+autocomplete query separately and return all matches sorted by found word count then found position.
+This behaviour has the side effect that part matches may not be hilighted in the UI. The REDCap autocomplete UI takes
+the search term used and hilights the matching part of the text in the dropdown. 
+
+So if you search for coronav and get a return list of
+- Avian *Coronav*irus
+- Bovine *Coronanv*irus
+- Canine *CoronanV*irus
+
+The 'coronav' section of each choice will be hilighted.
+
+But if you search for 'tuberculosis bacterial' and get a return list of  
+- 10044772: Tuberculosis of adrenal glands, confirmed by bacterial culture
+- 10044780: Tuberculosis of bladder, confirmed by bacterial culture
+- 10044799: Tuberculosis of ear, confirmed by bacterial culture
+
+No hilighting will be shown in the UI, as only a full text match is emphasised. 
 
 
-## Ontology Provider
+The module parses the codes and displays into an associative array before searching takes place.
+If multiple entries have the same code, then the last entry will overwrite any existing entries. 
+
+
+# Ontology Provider
+
+As part of release 8.8.1 of REDCap an extension point was added to allow external modules to become an 
+*'Ontology Provider'*. These act like the existing BioPortal ontology mechanism, but allow alternative sources.
+The main function of an ontology provider is to take a search term and return some match of code + display.
+This module is a very simple example of an external module which provides this functionality. 
 
 To become an ontology provider an external module needs to :
 
@@ -155,7 +188,7 @@ In the config.json file of the external module add:
 
 In the external module add:
 ```
- public function redcap_every_page_before_render (int $project_id ){
+ public function redcap_every_page_before_render ($project_id ){
   }
 ```
 
