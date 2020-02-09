@@ -1,6 +1,6 @@
 # Simple Ontology External Module
 
-This redcap external module allows the definition of a custom set of 'ontologies' which can be the be used to provide
+This redcap external module allows the definition of a custom set of 'ontologies' which can be used to provide
 autocomplete functionality for a text field. Ontologies can be defined at a site or project level, and a default value
 can be specified to be returned if no match is found. Since version 0.3, rather then looking for an exact string match,
 the module will search for each word in the autocomplete query separately and return all matches sorted by found word 
@@ -8,15 +8,18 @@ count then found position.
 
 
 Dr Daniel Hinostroza from Hospital de Especialidades Carlos Andrade Marín very kindly wrote a Spanish
-translation for this module, you can find the readme here: [Documentación española](?prefix=simple_ontology_provider&page=README.es.md)
-[Github Documentación española](https://github.com/aehrc/redcap_simple_ontology_provider/blob/v0.3.2/README.md)
+translation for this module, you can find the readme here: [Documentación en español](?prefix=simple_ontology_provider&page=README.es.md)
+[Github Documentación en español](https://github.com/aehrc/redcap_simple_ontology_provider/blob/v0.3.2/README.es.md)
 
 The module is licensed under CSIRO Open Source Software Licence Agreement (a variation of the BSD / MIT License).
 
 ## Using the module
-The module code needs to be placed in a directory modules/simple-ontoloy_v0.3.2
+Default option: download the module from the REDCap External Module Repo
 
-The module should then show up as an external module.
+Option 2: download the module from Github and expand the .zip file into the modules folder, i.e., redcap/modules/simple-ontology_provider_v0.3.2. 
+The module will then become visible within the REDCap external modules.
+
+In both cases, this should allow configuration and the added benefit of receiving notifications whenever the module is updated within the Repo.
 
 The settings for the module are used for specifying ontologies. If an ontology is added in the site settings
 for the module it will be available for all projects. Project specific ontologies are added as project settings
@@ -98,7 +101,7 @@ To become an ontology provider an external module needs to :
 
 ### OntologyProvider Interface
 
-An ontology provider allows a thrid party service such as bioportal or fhir to provide one or more ontolgies.
+An ontology provider allows a thrid party service such as bioportal or fhir to provide one or more ontologies.
 
 This ontology is specified in the definition of a field as the enum_element and will be persisted using the 
 form service:category

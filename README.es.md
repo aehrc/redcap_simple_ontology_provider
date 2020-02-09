@@ -1,28 +1,24 @@
 # Módulo Externo de Ontología Simple
 
-Como parte de REDCap v8.8.1 se agregó un punto de extensión para permitir que módulos externos puedan ofrecer 
-servicios de ontologías (Ontology Provider). Funciona como el mecanismo del BioPortal de ontología, pero permite cargar terminologías/vocabularios propios.
-La función principal de un proveedor de ontologías es la de recibir un término de búsqueda y devolver un código y descripción.
+Este módulo externo de REDCap permite definir un grupo personalizado de 'ontologías' que se puede utilizar para ofrecer la función de autocompletar a un campo de texto.  Las ontologías se pueden definir a nivel del Centro de Control (para toda su instalación de REDCap) o a nivel de proyecto y se puede establecer un valor predeterminado en caso de no hallar resultados.  Desde la versión 0.3, en lugar de buscar una coincidencia exacta durante la búsqueda, el módulo buscará cada palabra de manera separada y traerá todas las coincidencias organizadas por número de palabras halladas y luego por posición de las palabras halladas.
 
-Este módulo externo es un ejemplo muy sencillo que muestra esta funcionalidad. 
-Se puede configurar para aportar una colección de valores para toda la instalación de REDCap o a nivel de proyecto que se pueden referenciar dentro de los formularios.
+La licencia de este módulo se encuentra bajo el Acuerdo de Licencia de Código Abierto de CSIRO (una variación de la licencia BSD/MIT).
+
+Este módulo externo es un ejemplo muy sencillo que demuestra la funcionalidad autocompletar.  Se puede configurar para aportar una colección de valores para toda la instalación de REDCap o a nivel de proyecto que se pueden referenciar dentro de los formularios.
 
 
 ## Configuración del módulo
-El módulo debe colocarse en la carpeta de módulos:
-redcap/modules/simple-ontology_provider_v0.3.x
+Opción predeterminada: descargue el módulo desde el Repositorio de módulos externos de REDCap
 
-El módulo será visible en REDCap, en Módulos Externos.
+Opción 2: descargue el módulo de Github y colóquelo descomprimido en la carpeta de módulos, por ej., redcap/modules/simple-ontology_provider_v0.3.2. El módulo se volverá visible en REDCap, dentro de los Módulos Externos, para que lo pueda habilitar y acceder a notificaciones cuando hay actualizaciones disponibles.
 
-La configuración se usa para seleccionar las ontologías que usará localmente. Si la ontología se añade en la configuración del Centro de Control
-estará disponible en todos los proyectos. Las ontologías específicas para el proyecto se añaden como ajustes del proyecto
-para el módulo. Si coloca la misma ontología en los módulos externos del centro de control y del proyecto, usará la del proyecto.
+La configuración se usa para seleccionar las ontologías que usará localmente. Si la ontología se añade en la configuración del Centro de Control estará disponible en todos los proyectos. Las ontologías específicas para el proyecto se añaden como ajustes del proyecto para el módulo. Si coloca la misma ontología en los módulos externos del centro de control y del proyecto, usará la del proyecto.
 
 No hay límite en el número de ontologías que puede agregar, usando los siguientes campos:
 
  * `Categoría de la ontología` - Este es el nombre interno para la ontología y debe ser exclusiva para esa ontología.
  * `Nombre de la ontología` - Este es el nombre que se presentará cuando seleccione la ontología en el Diseñador en-línea.
- * `Avisar cuando no hay resultado 'No Results Found'` - Esta casilla se usa para indicar que debe retornar un valor especial si no existen resultados de la búsqueda.
+ * `Avisar cuando no hay resultado 'Sin resultado'` - Esta casilla se usa para indicar que debe retornar un valor especial si la búsqueda no obtiene resultados.
  El propósito de esto es permitir que se seleccione la opción y luego activar un campo adicional a través de lógica de ramificación para recibir datos adicionales.
  También se puede usar para seleccionar un valor predeterminado.
  * `Mensaje cuando no hay resultado` - El valor a mostrar para el valor especial devuelto si se habilita la opción `Responder que no se hallaron resultados`.
@@ -46,41 +42,56 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
 
 ![SimpleOntology Settings](SimpleOntologySettings.es.png)
 
-El autocompletar implementado por el módulo hará una búsqueda de texto sencilla de la descripción para el texto ingresado. 
-Colocará los valores coincidentes que empiezan con el texto buscado y con el texto dentro de la descripción.
+La función autocompletar implementada por el módulo hará una búsqueda de texto sencilla de la descripción para el texto ingresado. 
+Desde la versión 0.3, en lugar de buscar una coincidencia exacta, el módulo buscará cada palabra por separado dentro de la casilla de autocompletar y traerá todos los resultados coincidentes organizada por número de palabras halladas y luego por la posición de las palabras halladas en el mismo orden.
+Este comportamiento tiene un efecto colateral: la porción de texto coincidente podría no quedar resaltada en la interfaz del usuario. La interfaz de autocompletar en REDCap toma el término buscado y resalta la porción coincidente del texto en la lista desplegable. 
 
+Por tanto, si busca coronav obtiene como resultado:
+- *Coronav*irus aviar
+- *Coronav*irus bovino
+- *Coronav*irus canino
+
+La porción 'coronav' de cada opción quedará resaltada.
+
+Pero si busca 'tuberculosis bacteria' y obtiene como resultado:  
+- 10044772: Tuberculosis suprarrenal, confirmada por cultivo bacteriano
+- 10044780: Tuberculosis vesical, confirmada por cultivo bacteriano
+- 10044799: Tuberculosis ótica, confirmada por cultivo bacteriano
+
+No se resaltará ningún resultado, por cuanto se resaltan solamente los resultados coincidentes. 
+
+El módulo procesa los códigos y las descripciones de manera asociativa antes de ejecutar la búsqueda.
+Si múltiples entradas comparten el mismo código, entonces la última entrada sobrescribirá las entradas existentes. 
 
 ## Proveedor de ontología
 
-Para convertirse en un proveedor de ontología, un módulo externo debe:
+Como parte de REDCap v8.8.1 se agregó un punto de extensión para permitir que los módulos externos puedan ofrecer servicios de ontologías (*'Ontology Provider'*). Funciona de manera similar al mecanismo del BioPortal de ontologías, pero permite cargar terminologías/vocabularios alternativos. La función principal de un Proveedor de ontologías es la de recibir un término de búsqueda y mostrar las coincidencias de código y descripción.
 
-  * Implementar la interfaz de proveedor de ontología
+Este módulo es un ejemplo muy sencillo de un módulo externo que aporta esta funcionalidad. 
+
+Para funcionar como Proveedor de ontologías, el módulo externo debe:
+
+  * Implementar la interfaz de Proveedor de ontología
   * Registrarse con el Gestor de ontologías
-  * Registrarse para cada 'page hook'. (El Diseñador en línea no tiene sus propios 'hooks')
+  * Registrarse para cada *'page hook'*. (El Diseñador en línea no tiene sus propios ganchos o *'hooks'*)
 
-### Interfaz del proveedor de ontología
+### Interfaz del Proveedor de ontologías
 
-Un proveedor de ontología permite que un tercero ofrezca una o más ontologías, como lo hace Bioportal o fhir.
+Un Proveedor de ontologías permite que un tercero ofrezca una o más ontologías, como lo hace Bioportal o fhir.
 
-Esta ontología se especifica en la definición de un campo como el enum_element y se mantendrá persistente usando la 
-forma servicio:categoría
+Esta ontología se especifica en la definición de un campo como el *'enum_element'* y se mantendrá persistente usando la forma servicio:categoría
 
-El nombre del servicio se usa para determinar cuál proveedor de ontología se debe usar.
+El nombre del servicio seleccionado determinará cuál proveedor de ontología será usado.
 
 #### Seleccionando la ontología:
 
-Seleccionar la ontología es un proceso de dos pasos, primero se selecciona un servicio de la lista de proveedores disponibles 
-y esto permitirá la selección de una categoría del servicio. El proveedor debe producir una secuencia que existirá dentro de 
-un div oculto para el servicio que que se mostrará cuando el servicio se muestre, este div contendrá los elementos ui para 
-seleccionar la categoría del servicio. Una vez hecha la selección, la ui debe llamar una función javascript 
-update_ontology_selection($service, $category), que habilitará un elemento de forma oculto usado para configurar el valor en el campo.
-De manera adicional, el proveedor podría querer incluir una función javascript
+Seleccionar la ontología es un proceso de dos pasos, primero se selecciona un servicio de la lista de proveedores disponibles y esto permitirá la selección de una categoría del servicio. El proveedor debe producir una secuencia que existirá dentro de 
+un div oculto para el servicio que que se mostrará cuando el servicio se muestre, este div contendrá los elementos ui para seleccionar la categoría del servicio. Una vez hecha la selección, la ui debe llamar una función javascript update_ontology_selection($service, $category), que habilitará un elemento de forma oculto usado para configurar el valor en el campo. De manera adicional, el proveedor podría querer incluir una función javascript
 que será llamada cuando el campo se poble para que la ui pueda reflejar la selección actual. Esta función debe tomar la forma <service>_ontology_changed(service, category).
 
 #### Búsqueda dentro de una ontología:
 
-   El proveedor aporta el mecanismo usado por autocompletar para que busque la ontología. Este método hace que
-   cualquier petición ajax devuelva los valores y la etiqueta que va junto con la selección.
+   El proveedor aporta el mecanismo usado por autocompletar para que busque la ontología. Este método hace que cualquier petición ajax devuelva los valores y la etiqueta que va junto con la selección.
 
 ## Configuración predeterminada
 
@@ -129,18 +140,15 @@ interface OntologyProvider {
 
 ### Registro con el Gestor de ontologías
 
-Una vez que un módulo externo tiene la implementación de Proveedor de ontologías, el siguiente paso 
-es asegurar que el proveedor está registrado para el uso. Esto se hace usando el código 
+Una vez que un módulo externo tiene la implementación de Proveedor de ontologías, el siguiente paso es asegurar que el proveedor está registrado para el uso. Esto se hace usando el código 
 ```
       // register with OntologyManager
       $manager = \OntologyManager::getOntologyManager();
       $manager->addProvider($provider);
 ```
 
-### Registro para un every page hook
-Para que el proveedor de ontologías esté disponible el módulo externo necesita registrarse para 
-redcap_every_page hook. En este módulo el proveedor de ontologías está registrado cuando se construye 
-el módulo, por lo que nada debe suceder durante la función hook, puesto que el registro ya se llevó a cabo.
+### Registro para un 'every page hook'
+Para que el proveedor de ontologías esté disponible el módulo externo necesita registrarse para redcap_every_page hook. En este módulo el proveedor de ontologías está registrado cuando se construye el módulo, por lo que nada debe suceder durante la función hook, puesto que el registro ya se llevó a cabo.
 
 En el archivo config.json del módulo externo añada:
 ```
@@ -154,3 +162,6 @@ En el módulo externo añada:
  public function redcap_every_page_before_render ( $project_id ){
   }
 ```
+Traducido: 2020-02-07 para la v0.3.2
+
+
