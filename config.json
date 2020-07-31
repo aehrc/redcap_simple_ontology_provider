@@ -45,7 +45,18 @@
                "required": true,
                "type": "text"
             },
-            {
+           {
+             "key": "site-search-type",
+             "tt_name": "site_search_type",
+             "name": "Search Type",
+             "required": true,
+             "type": "dropdown",
+             "choices": [
+               { "value": "word", "tt_name": "search_type_word", "name": "Word Based"},
+               { "value": "full", "tt_name": "search_type_full", "name": "Full Match"}
+             ]
+           },
+           {
 				"key": "site-return-no-result",
                 "tt_name": "site_return_no_result",
 				"name": "Return 'No Results Found'",
@@ -55,15 +66,13 @@
 				"key" : "site-no-result-label",
                 "tt_name" : "site_no_result_label",
 				"name" : "No Results Label",
-				"type" : "text",
-				"default" : "No Results Found"
+				"type" : "text"
 			},
 			{
 				"key" : "site-no-result-code",
                 "tt_name" : "site_no_result_code",
 				"name" : "No Results Code",
-				"type" : "text",
-				"default" : "_NRF_"
+				"type" : "text"
 			},
             {
                "key": "site-values-type",
@@ -110,6 +119,17 @@
                "required": true,
                "type": "text"
             },
+           {
+             "key": "project-search-type",
+             "tt_name": "project_search_type",
+             "name": "Search Type",
+             "required": true,
+             "type": "dropdown",
+             "choices": [
+               { "value": "word", "tt_name": "search_type_word", "name": "Word Based"},
+               { "value": "full", "tt_name": "search_type_full", "name": "Full Match"}
+             ]
+           },
             {
 				"key" : "project-return-no-result",
                 "tt_name" : "project_return_no_result",
@@ -120,15 +140,13 @@
 				"key" : "project-no-result-label",
                 "tt_name" : "project_no_result_label",
 				"name" : "No Results Label",
-				"type" : "text",
-				"default" : "No Results Found"
+				"type" : "text"
 			},
 			{
 				"key" : "project-no-result-code",
                 "tt_name" : "project_no_result_code",
 				"name" : "No Results Code",
-				"type" : "text",
-				"default" : "_NRF_"
+				"type" : "text"
 			},
             {
                "key": "project-values-type",

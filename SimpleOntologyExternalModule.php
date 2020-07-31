@@ -180,6 +180,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
       $key = 'site-category-list';
       $keys = [ 'site-category' => 'category',
                 'site-name' => 'name',
+                'site-search-type' => 'search-type',
                 'site-return-no-result' => 'return-no-result',
                 'site-no-result-label' => 'no-result-label',
                 'site-no-result-code' => 'no-result-code',
@@ -202,6 +203,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule  implements \O
       $key = 'project-category-list';
       $keys = [ 'project-category' => 'category',
                 'project-name' => 'name',
+                'project-search-type' => 'search-type',
                 'project-return-no-result' => 'return-no-result',
                 'project-no-result-label' => 'no-result-label',
                 'project-no-result-code' => 'no-result-code',
@@ -320,7 +322,18 @@ EOD;
     //error_log(print_r($values, TRUE));
     $wordResults = array();
     $strippedSearchTerm = $this->skip_accents($search_term);
-    $searchWords = explode(' ', $strippedSearchTerm);
+    if ($categoryData['search-type'] == 'full'){
+        $searchWords = [$strippedSearchTerm];
+    }
+    else {
+        if (strlen($strippedSearchTerm) > 0 && ($strippedSearchTerm[0] == "'" || $strippedSearchTerm[0] == '"')){
+            $searchWords = [substr($strippedSearchTerm, 1)];
+        }
+        else {
+            $searchWords = explode(' ', $strippedSearchTerm);
+        }
+    }
+
     foreach($values as $val){
       $code = $val['code'];
       $desc = $val['display'];
@@ -354,9 +367,11 @@ EOD;
       $desc = \REDCap::escapeHtml($val['display']);
       $results[$code] = $desc;
     }
-    
-    if (!$results){
-        // no results found
+
+    $result_limit = (is_numeric($result_limit) ? $result_limit : 20);
+
+    if (count($results) < $result_limit) {
+        // add no results found
         $return_no_result = $categoryData['return-no-result'];
         if ($return_no_result){
             $no_result_label = $categoryData['no-result-label'];
@@ -365,7 +380,6 @@ EOD;
         }
     }
     
-    $result_limit = (is_numeric($result_limit) ? $result_limit : 20);
 		// Return array of results
 		return array_slice($results, 0, $result_limit, true);
   }

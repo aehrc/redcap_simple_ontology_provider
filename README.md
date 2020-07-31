@@ -2,9 +2,8 @@
 
 This redcap external module allows the definition of a custom set of 'ontologies' which can be used to provide
 autocomplete functionality for a text field. Ontologies can be defined at a site or project level, and a default value
-can be specified to be returned if no match is found. Since version 0.3, rather then looking for an exact string match,
-the module will search for each word in the autocomplete query separately and return all matches sorted by found word 
-count then found position. 
+can be specified to be returned if no match is found. Since version 0.4, an option has been added to select to swap
+between word based searching and a full match with all entered text.
 
 
 Dr Daniel Hinostroza from Hospital de Especialidades Carlos Andrade Marín very kindly wrote a Spanish
@@ -16,7 +15,7 @@ The module is licensed under CSIRO Open Source Software Licence Agreement (a var
 ## Using the module
 Default option: download the module from the REDCap External Module Repo
 
-Option 2: download the module from Github and expand the .zip file into the modules folder, i.e., redcap/modules/simple-ontology_provider_v0.3.2. 
+Option 2: download the module from Github and expand the .zip file into the modules folder, i.e., redcap/modules/simple-ontology_provider_v0.4. 
 The module will then become visible within the REDCap external modules.
 
 In both cases, this should allow configuration and the added benefit of receiving notifications whenever the module is updated within the Repo.
@@ -30,14 +29,21 @@ Any number of ontologies can be added, using the follow fields:
 
  * `Ontology Category` - This is the internal name for the ontology, and should be unique for the ontology.
  * `Ontology Name` - This is the name that will be presented when choosing the ontology in the online designer.
+ * `Search Type` - This drop down is used to select the search algorithm to use. The choices are:
+    * `Word Based` - This is the search mechanism introduced in version 0.3, each word is search separately.
+    * `Full Match` - The full text is searched with no special behaviour for words.
  * `Return 'No Results Found'` - This check box is used to indicate that a special value should be returned if no values
   are returned by a search. The purpose of this is to allow the option to be selected and then have an additional field
   get activated via branching logic to receive additional data. It can also be used to fall  back to some default value.
  * `No Results Label` - The display value for the special value returned if the `return no results found` option is enabled.
  * `No Results Code` - The value for the special value returned if the `return no results found` option is enabled.
+ * `'No Results Found' result count` - An integer value indicating the search result count under which the special no
+    result found value will be included in the results. For example a value of 5, would mean if the search found 5 or
+    fewer matches than the no result value also appear in the search results. The search will only return a maximum of
+    20 results even if there are more matches, this setting cannot exceed 19.
  * `Values Type` - This is used to indicate how the values will be provided. The options are:
     * `list` - A list of values, seperated by a new line. The value and display will be the same value.
-    * `bar` - A list of value|display using a '|' as the seperator. Entries are separated with a new line.
+    * `bar` - A list of value|display using a '|' as the separator. Entries are separated with a new line.
     * `json` - A json array of objects with a code and display. The json can contain other fields, only code and display will be used. Example json:
 ```
 [
@@ -58,11 +64,13 @@ Any number of ontologies can be added, using the follow fields:
 ```
  * `Values` - The actual values in the set. The format will depend on the Values Type chosen.
 
-![SimpleOntology Settings](SimpleOntologySettings.png)
+![SimpleOntology Settings](SimpleOntologySettings_v0.4.png)
 
-
+## Word based searching
 The autocomplete implemented by the module will do a simple text search of the display text for the entered text.
-Since version 0.3, rather then looking for an exact string match, the module will search for each word in the 
+In version 0.3 a word based search mechanism was implemented, but in version 0.4 a new option has been added to chose
+between the word based search or a simple full text match.
+For the word based search, rather than looking for an exact string match, the module will search for each word in the 
 autocomplete query separately and return all matches sorted by found word count then found position.
 This behaviour has the side effect that part matches may not be hilighted in the UI. The REDCap autocomplete UI takes
 the search term used and hilights the matching part of the text in the dropdown. 

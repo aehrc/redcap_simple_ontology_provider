@@ -1,6 +1,9 @@
 # Módulo Externo de Ontología Simple
 
-Este módulo externo de REDCap permite definir un grupo personalizado de 'ontologías' que se puede utilizar para ofrecer la función de autocompletar a un campo de texto.  Las ontologías se pueden definir a nivel del Centro de Control (para toda su instalación de REDCap) o a nivel de proyecto y se puede establecer un valor predeterminado en caso de no hallar resultados.  Desde la versión 0.3, en lugar de buscar una coincidencia exacta durante la búsqueda, el módulo buscará cada palabra de manera separada y traerá todas las coincidencias organizadas por número de palabras halladas y luego por posición de las palabras halladas.
+Este módulo externo de REDCap permite definir un conjunto personalizado de ‘ontologías’ que se puede utilizar para 
+proveer funcionalidad de autocompletar un campo de texto. Las ontologías se pueden definir a nivel de sitio o proyecto 
+y se puede especificar un valor por defecto que se debe desplegar si no se encuentran resultados. Desde la version 0.4, 
+se agregó una opción para intercambiar entre búsqueda por palabras y búsqueda por el texto completo. 
 
 La licencia de este módulo se encuentra bajo el Acuerdo de Licencia de Código Abierto de CSIRO (una variación de la licencia BSD/MIT).
 
@@ -18,6 +21,9 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
 
  * `Categoría de la ontología` - Este es el nombre interno para la ontología y debe ser exclusiva para esa ontología.
  * `Nombre de la ontología` - Este es el nombre que se presentará cuando seleccione la ontología en el Diseñador en-línea.
+ * `Tipo de búsqueda` - Este menú desplegable se utiliza para seleccionar el algortimo de búsqueda que se quiere utilizar. Las opciones son:
+    * `Basado en palabras` - Este es el mecanismo de búsqueda introducido en la versión 0.3 en el cual cada palabra se busca por separado.
+    * `Texto completo` - La búsqueda se realiza usando el texto completo sin ningún comportamiento especial para las palabras.
  * `Avisar cuando no hay resultado 'Sin resultado'` - Esta casilla se usa para indicar que debe retornar un valor especial si la búsqueda no obtiene resultados.
  El propósito de esto es permitir que se seleccione la opción y luego activar un campo adicional a través de lógica de ramificación para recibir datos adicionales.
  También se puede usar para seleccionar un valor predeterminado.
@@ -40,11 +46,12 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
 ```
  * `Valores` - Los valores que se importarán en la ontología. El formato depende del tipo de valores seleccionado.
 
-![SimpleOntology Settings](SimpleOntologySettings.es.png)
+![SimpleOntology Settings](SimpleOntologySettings_v0.4.es.png)
 
-La función autocompletar implementada por el módulo hará una búsqueda de texto sencilla de la descripción para el texto ingresado. 
-Desde la versión 0.3, en lugar de buscar una coincidencia exacta, el módulo buscará cada palabra por separado dentro de la casilla de autocompletar y traerá todos los resultados coincidentes organizada por número de palabras halladas y luego por la posición de las palabras halladas en el mismo orden.
-Este comportamiento tiene un efecto colateral: la porción de texto coincidente podría no quedar resaltada en la interfaz del usuario. La interfaz de autocompletar en REDCap toma el término buscado y resalta la porción coincidente del texto en la lista desplegable. 
+## Búsqueda basada en palabras
+La funcionalidad de autocompletar implementada por el módulo siempre hará una búsqueda de texto simple en el texto de despliegue para el texto ingresado. En la versión 0.3, un mecanismo basado en palabras fue implementado, pero en la versión 0.4 una nueva opción ha sido agregada para seleccionar entre búsqueda por palabras y búsqueda por el texto completo.
+Para la búsqueda basada en palabras, en vez de buscar una cadena de texto que corresponda de manera exacta, el módulo buscará cada palabra en la consulta por separado y devolverá todos los resultados ordenados por el número de palabras que coincidieron y después por la posición donde fueron encontradas.
+Este comportamiento tiene el effecto secundario de que algunos resultados parciales pueden no ser resaltados en la interfaz gráfica. La interfaz gráfica de autocompletar en REDCap toma el término de búsqueda utilizado y resalta la parte correspondiente del texto en el menú deplegable.
 
 Por tanto, si busca coronav obtiene como resultado:
 - *Coronav*irus aviar
@@ -162,6 +169,6 @@ En el módulo externo añada:
  public function redcap_every_page_before_render ( $project_id ){
   }
 ```
-Traducido: 2020-02-07 para la v0.3.2
+Traducido: 2020-07-31 para la v0.4
 
 
