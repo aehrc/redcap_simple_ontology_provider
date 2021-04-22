@@ -304,8 +304,9 @@ EOD;
       elseif ($type == 'bar'){
         $rows = preg_split("/\r\n|\n|\r/", $rawValues);
         foreach($rows as $row){
-          $cols = explode('|', $row); 
-          $values[] = ['code'=>$cols[0],'display'=>$cols[1]];
+          $cols = explode('|', $row);
+          $col_rev = array_reverse($cols);
+          $values[] = ['code'=>array_pop($col_rev),'display'=>array_pop($col_rev), 'synonyms'=>$col_rev];
         }
       }
       elseif ($type == 'json'){
@@ -313,7 +314,7 @@ EOD;
 		     if (is_array($list)){
             foreach($list as $item){
               if (isset($item['code']) and isset($item['display'])){
-                $values[] = ['code'=>$item['code'],'display'=>$item['display']];
+                $values[] = ['code'=>$item['code'],'display'=>$item['display'], 'synonyms'=>$item['synonyms']];
               }
            }
         }
@@ -337,6 +338,7 @@ EOD;
     foreach($values as $val){
       $code = $val['code'];
       $desc = $val['display'];
+      $synonyms = $val['synonyms'];
       $strippedDesc = $this->skip_accents($desc);
       $foundCount=0;
       $minPos=99;
@@ -346,6 +348,29 @@ EOD;
               $foundCount++;
               if ($pos < $minPos){
                   $minPos = $pos;
+              }
+          }
+      }
+      if ($synonyms){
+          foreach($synonyms as $synonym){
+              $synonymStrippedDesc = $this->skip_accents($synonym);
+              $synonymFoundCount=0;
+              $synonymMinPos=99;
+              foreach($searchWords as $word){
+                  $synonymPos = stripos($synonymStrippedDesc, $word);
+                  if ($synonymPos !== FALSE){
+                      $synonymFoundCount++;
+                      if ($synonymPos < $synonymMinPos){
+                          $synonymMinPos = $synonymPos;
+                      }
+                  }
+              }
+              if ($synonymFoundCount > $foundCount){
+                  $foundCount = $synonymFoundCount;
+                  $minPos = $synonymMinPos;
+              }
+              else if ($synonymFoundCount == $foundCount && $synonymMinPos < $minPos){
+                  $minPos = $synonymMinPos;
               }
           }
       }

@@ -64,6 +64,35 @@ Any number of ontologies can be added, using the follow fields:
 ```
  * `Values` - The actual values in the set. The format will depend on the Values Type chosen.
 
+
+### Synonyms
+Version 0.5 of the module introduces support for synonyms. A synonym is an alternative text representation for
+the code. The synonym text will also be search, but the display will always be returned.
+
+Synonyms can be added using the bar and json formats. For the Bar format, the synonyms are added by using more bars to
+separate the synonyms. For example:
+```text
+fan|Robert Fanning|Bob Fanning|fan
+che|Justine Brown|Justine Chen|Jai Li Chen|che
+coo|Cooper Derricks|coo
+col|Morty Cole|col
+```
+Adds the code as a search term, but also adds alternative versions of names. Any number of synonyms can be added, but
+for bar delimited they still must be on the same line. For json format, the attribute 'synonyms' is used to provide an
+array of synonyms.
+```json
+[
+{"code": "fan", "display": "Robert Fanning", "synonyms": ["Bob Fanning", "fan"]},
+{"code": "che", "display": "Justine Brown", "synonyms": ["Justine Chen", "Jai Li Chen", "che"]},
+{"code": "coo", "display": "Cooper Derricks", "synonyms": ["coo"]},
+{"code": "col", "display": "Morty Cole", "synonyms": ["col"]}
+]
+```
+This is the equivalent in json format.
+
+
+![Searching with a synonym](SimpleOntologySynonym.png)
+
 ![SimpleOntology Settings](SimpleOntologySettings_v0.4.png)
 
 ## Word based searching
@@ -90,7 +119,7 @@ But if you search for 'tuberculosis bacterial' and get a return list of
 No hilighting will be shown in the UI, as only a full text match is emphasised. 
 
 
-The module parses the codes and displays into an associative array before searching takes place.
+The module parses the codes and displays into an associative array before returning search results.
 If multiple entries have the same code, then the last entry will overwrite any existing entries. 
 
 
