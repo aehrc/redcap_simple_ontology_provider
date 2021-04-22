@@ -93,6 +93,36 @@ This is the equivalent in json format.
 
 ![Searching with a synonym](SimpleOntologySynonym.png)
 
+### Active flag
+Version 0.5 of the module introduces support for an active flag being associated with an entry. An entry set to 
+active=false will not appear in the searched list, but is still a member of the ontology and so will appear if the
+value has been used in the past.
+
+How an entry is marked as not active depends on the format used to enter the values.
+If the values type is `list` or `bar` then the entry is marked as active=false by adding a `!` character at the
+start of the line. If the code starts with a `!` then is can be escaped with a `\`  
+```text
+fan|Robert Fanning|Bob Fanning|fan
+che|Justine Brown|Justine Chen|Jai Li Chen|che
+coo|Cooper Derricks|coo
+!col|Morty Cole|col
+\!escape|Code with an leading !
+```
+In the Bar example above, Morty Cole is considered not active and will not show as choice when selecting from the
+ontology. The `!escape` code needs to be escaped with a leading `\`
+
+For `json` values, the value is added using an `active` attribue.
+```json
+[
+{"code": "fan", "display": "Robert Fanning", "synonyms": ["Bob Fanning", "fan"]},
+{"code": "che", "display": "Justine Brown", "synonyms": ["Justine Chen", "Jai Li Chen", "che"]},
+{"code": "coo", "display": "Cooper Derricks", "synonyms": ["coo"]},
+{"code": "col", "display": "Morty Cole", "active": false, "synonyms": ["col"]}
+]
+```
+This is the equivalent in json format. If active is missing or set to something else then the entry will be considered 
+active.
+
 ![SimpleOntology Settings](SimpleOntologySettings_v0.4.png)
 
 ## Word based searching
