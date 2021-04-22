@@ -152,7 +152,18 @@ No hilighting will be shown in the UI, as only a full text match is emphasised.
 The module parses the codes and displays into an associative array before returning search results.
 If multiple entries have the same code, then the last entry will overwrite any existing entries. 
 
-
+## @HIDECHOICE support
+As part of the 0.5 release extra functionality has been added to this module for it to consider the `@HIDECHOICE`
+action tag. This action tag is available for choice fields to indicate a choice should not be shown. This
+can be achieved at an global level in this module by using the active flag to mark an code as not active. The
+@HIDECHOICE action tag however is specified at a field level. So the value will only be hidden for the field the
+action tag is specified for. The set of values to hide is defined using a comma separated list of code for the
+values which should be hidden. The module considers all @HIDECHOICE entries found in the annotations property of the
+field.
+```text
+@HIDECHOICE='code1,code2'
+```
+![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
 # Ontology Provider
 
 As part of release 8.8.1 of REDCap an extension point was added to allow external modules to become an 

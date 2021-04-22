@@ -284,6 +284,7 @@ EOD;
     {
         $systemCategories = $this->getSystemCategories();
         $projectCategories = $this->getProjectCategories();
+        $hideChoice = $this->getHideChoice();
         $categories = [];
         foreach ($systemCategories as $cat) {
             $categories[$cat['category']] = $cat;
@@ -360,6 +361,10 @@ EOD;
                 continue;
             }
             $code = $val['code'];
+            if (in_array($code, $hideChoice)){
+                // in hide choice list
+                continue;
+            }
             $desc = $val['display'];
             $synonyms = $val['synonyms'];
             $strippedDesc = $this->skip_accents($desc);
@@ -500,4 +505,32 @@ EOD;
         return $str;
     }
 
+    function getHideChoice()
+    {
+        $codesToHide=[];
+        if (isset($_GET['field'])){
+            $field = $_GET['field'];
+            if (isset($Proj->metadata[$_GET['field']])) {
+                $annotations = $Proj->metadata[$field]['field_annotation'];
+            }
+            else if (isset($_GET['pid'])){
+                $project_id = $_GET['pid'];
+                $dd_array = \REDCap::getDataDictionary($project_id, 'array', false, array($field));
+                $annotations = $dd_array[$field]['field_annotation'];
+            }
+            if ($annotations) {
+                $offset = 0;
+                while (preg_match("/@HIDECHOICE='([^']*)'/", $annotations, $matches, PREG_OFFSET_CAPTURE, $offset) === 1){
+                    $listedCodesStr = $matches[1][0];
+                    $listedCodes = explode(',', $listedCodesStr);
+                    foreach($listedCodes as $code){
+                        array_push($codesToHide, trim($code));
+                    }
+                    $offset = $matches[0][1] + strlen($matches[0][0]);
+                }
+            }
+        }
+
+        return $codesToHide;
+    }
 }
