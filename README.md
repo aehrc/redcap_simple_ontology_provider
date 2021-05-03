@@ -164,6 +164,7 @@ field.
 @HIDECHOICE='code1,code2'
 ```
 ![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
+
 # Ontology Provider
 
 As part of release 8.8.1 of REDCap an extension point was added to allow external modules to become an 

@@ -46,6 +46,75 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
 ```
  * `Valores` - Los valores que se importarán en la ontología. El formato depende del tipo de valores seleccionado.
 
+### Sinónimos
+
+La versión 0.5 de este modulo introduce soporte para sinónimos. Un sinónimo es una representación textual alternativa 
+para un código. El texto del sinónimo también puede ser parte de las búsquedas, pero el rótulo principal siempre será 
+devuelto.
+
+Los sinónimos se puede adicionar utilizando los formatos de barras y JSON. Para el formato de barras, los  sinónimos 
+se adicionan utilizando barras verticales para separar los sinónimos. Por ejemplo,
+
+```text
+fan|Robert Fanning|Bob Fanning|fan
+che|Justine Brown|Justine Chen|Jai Li Chen|che
+coo|Cooper Derricks|coo
+col|Morty Cole|col
+```
+
+adiciona el código con un término de búsqueda pero también adiciona versiones alternativas de los nombres. Cualquier 
+número de sinónimos pueden ser adicionados, pero para este formato deben estar en la misma línea. 
+En el formato JSON, el atributo ‘synonyms’ se utiliza para proveer una lista de sinónimos. La siguiente es la 
+definición equivalente en formato JSON:
+
+
+```json
+[
+{"code": "fan", "display": "Robert Fanning", "synonyms": ["Bob Fanning", "fan"]},
+{"code": "che", "display": "Justine Brown", "synonyms": ["Justine Chen", "Jai Li Chen", "che"]},
+{"code": "coo", "display": "Cooper Derricks", "synonyms": ["coo"]},
+{"code": "col", "display": "Morty Cole", "synonyms": ["col"]}
+]
+```
+
+![Searching with a synonym](SimpleOntologySynonym.png)
+
+### Bandera Activo
+
+
+La versión 0.5 del módulo introduce soporte para una bandera que indica si una entrada está activa. Una entrada donde 
+la bandera esté desactivada (active  = false) no aparecerá en los resultados de búsqueda pero todavía es un miembro 
+de la ontología y por lo tanto todavía aparecerá si ha sido utilizada en el pasado.
+
+La forma de indicar si una entrada esta activa o no depende del formato utilizado para ingresar los valores. Si el tipo 
+de valor es lista o barra entonces la entrada se marca como inactiva adicionando el símbolo `!` al comienzo de la línea. 
+Si el código comienza con un `!` entonces puede ser escapado con un `\`
+
+```text
+fan|Robert Fanning|Bob Fanning|fan
+che|Justine Brown|Justine Chen|Jai Li Chen|che
+coo|Cooper Derricks|coo
+!col|Morty Cole|col
+\!escape|Code with an leading !
+```
+
+En el ejemplo de barras de arriba, Morty Cole se considera inactive y no aparecerá como una opción cuando se esté 
+seleccionado un elemento de la ontología. El código `!escape` debe ser escapado con un `\`
+
+Para valores json, el valor se adiciona a través del atributo activo.
+
+```json
+[
+{"code": "fan", "display": "Robert Fanning", "synonyms": ["Bob Fanning", "fan"]},
+{"code": "che", "display": "Justine Brown", "synonyms": ["Justine Chen", "Jai Li Chen", "che"]},
+{"code": "coo", "display": "Cooper Derricks", "synonyms": ["coo"]},
+{"code": "col", "display": "Morty Cole", "active": false, "synonyms": ["col"]}
+]
+```
+
+Este es el equivalente en formato json. Si el atributo active no está presente o su valor es diferente a false la 
+entrada se considerará activa.
+
 ![SimpleOntology Settings](SimpleOntologySettings_v0.4.es.png)
 
 ## Búsqueda basada en palabras
@@ -67,8 +136,24 @@ Pero si busca 'tuberculosis bacteria' y obtiene como resultado:
 
 No se resaltará ningún resultado, por cuanto se resaltan solamente los resultados coincidentes. 
 
-El módulo procesa los códigos y las descripciones de manera asociativa antes de ejecutar la búsqueda.
-Si múltiples entradas comparten el mismo código, entonces la última entrada sobrescribirá las entradas existentes. 
+
+
+El modulo procesa los códigos y los rótulos en un arreglo asociativo antes de retornar los resultados de búsqueda. 
+Si varias entradas tienen el mismo código entonces la última entrada sobrescribirá las entradas existentes.
+
+## Soporte de @HIDECHOICE
+
+Parte de la funcionalidad que se ah adicionado a este módulo es soportar la etiqueta de acción (action tag) @HIDECHOICE. 
+Esta etiqueta está disponible para los campos de selección para indicar que una opción no debe ser mostrada. Esto se 
+puede lograr de manera global en este módulo utilizando la bandera active para marcar un código como inactivo. 
+La etiqueta @HIDECHOICE, sin embargo, se especifica a nivel de campo. El valor solo se dejará de mostrar para el campo 
+donde se utilizó la etiqueta. El conjunto de valores que se quieren esconder se especifican utilizando una lista 
+separada por comas. El módulo considera todas las entradas @HIDECHOICE encontradas en las propiedades de anotación del campo.
+
+```text
+@HIDECHOICE='code1,code2'
+```
+![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
 
 ## Proveedor de ontología
 
