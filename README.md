@@ -5,17 +5,20 @@ autocomplete functionality for a text field. Ontologies can be defined at a site
 can be specified to be returned if no match is found. Since version 0.4, an option has been added to select to swap
 between word based searching and a full match with all entered text.
 
+Version 0.5 introduces support for synonyms and marking entries as inactive.
+
 
 Dr Daniel Hinostroza from Hospital de Especialidades Carlos Andrade Marín very kindly wrote a Spanish
 translation for this module, you can find the readme here: [Documentación en español](?prefix=simple_ontology_provider&page=README.es.md)
-[Github Documentación en español](https://github.com/aehrc/redcap_simple_ontology_provider/blob/v0.3.2/README.es.md)
+[Github Documentación en español](https://github.com/aehrc/redcap_simple_ontology_provider/blob/v0.5/README.es.md)
+Thanks to Alejandro Metke Jimenez for updating the Spanish readme for version 0.4 and 0.5.
 
 The module is licensed under CSIRO Open Source Software Licence Agreement (a variation of the BSD / MIT License).
 
 ## Using the module
 Default option: download the module from the REDCap External Module Repo
 
-Option 2: download the module from Github and expand the .zip file into the modules folder, i.e., redcap/modules/simple-ontology_provider_v0.4. 
+Option 2: download the module from Github and expand the .zip file into the modules folder, i.e., redcap/modules/simple_ontology_provider_v0.5. 
 The module will then become visible within the REDCap external modules.
 
 In both cases, this should allow configuration and the added benefit of receiving notifications whenever the module is updated within the Repo.

@@ -5,6 +5,8 @@ proveer funcionalidad de autocompletar un campo de texto. Las ontologías se pue
 y se puede especificar un valor por defecto que se debe desplegar si no se encuentran resultados. Desde la version 0.4, 
 se agregó una opción para intercambiar entre búsqueda por palabras y búsqueda por el texto completo. 
 
+La versión 0.5 introduce soporte para sinónimos y marcando entradas como inactivas.
+
 La licencia de este módulo se encuentra bajo el Acuerdo de Licencia de Código Abierto de CSIRO (una variación de la licencia BSD/MIT).
 
 Este módulo externo es un ejemplo muy sencillo que demuestra la funcionalidad autocompletar.  Se puede configurar para aportar una colección de valores para toda la instalación de REDCap o a nivel de proyecto que se pueden referenciar dentro de los formularios.
@@ -13,7 +15,7 @@ Este módulo externo es un ejemplo muy sencillo que demuestra la funcionalidad a
 ## Configuración del módulo
 Opción predeterminada: descargue el módulo desde el Repositorio de módulos externos de REDCap
 
-Opción 2: descargue el módulo de Github y colóquelo descomprimido en la carpeta de módulos, por ej., redcap/modules/simple-ontology_provider_v0.3.2. El módulo se volverá visible en REDCap, dentro de los Módulos Externos, para que lo pueda habilitar y acceder a notificaciones cuando hay actualizaciones disponibles.
+Opción 2: descargue el módulo de Github y colóquelo descomprimido en la carpeta de módulos, por ej., redcap/modules/simple_ontology_provider_v0.5. El módulo se volverá visible en REDCap, dentro de los Módulos Externos, para que lo pueda habilitar y acceder a notificaciones cuando hay actualizaciones disponibles.
 
 La configuración se usa para seleccionar las ontologías que usará localmente. Si la ontología se añade en la configuración del Centro de Control estará disponible en todos los proyectos. Las ontologías específicas para el proyecto se añaden como ajustes del proyecto para el módulo. Si coloca la misma ontología en los módulos externos del centro de control y del proyecto, usará la del proyecto.
 
