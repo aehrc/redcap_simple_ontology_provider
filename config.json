@@ -2,6 +2,7 @@
    "name": "Simple Ontology Module",
    "namespace": "AEHRC\\SimpleOntologyExternalModule", 
    "description": "This module provides site wide ontology lookup, and was written to test the ontology provider mechanism.",
+   "framework-version": 16,
    "documentation": "README.md",
    "tt_name": "module_name",
    "tt_description": "module_description",
@@ -17,9 +18,6 @@
            "email": "dhinostroza@gmail.com",
            "institution": "Hospital de Especialidades Carlos Andrade Marín, Quito-Ecuador (Spanish Translation)"
         }
-    ],
-    "permissions": [
-        "redcap_every_page_before_render"
     ],
     "enable-every-page-hooks-on-system-pages": false,
     "system-settings" : [
@@ -171,7 +169,7 @@
         }
 	],
   "compatibility": {
-    "php-version-min" : "5.4.0",
+    "php-version-min": "8.0.0",
     "redcap-version-min": "8.8.1"
   }
   
