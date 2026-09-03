@@ -19,7 +19,16 @@ jobs:
 
       - name: Fail on inline <script> blocks in PHP
         run: |
-          if grep -rnE '<script(\s|>)' --include='*.php' --exclude-dir=tests --exclude-dir=vendor . | grep -v 'src='; then
-            echo "::error::Inline <script> block found in a PHP file - move the JS into a real .js file under js/ and load it via \$this->getUrl() instead (see openspec/changes/ontology-provider-extract-inline-js)."
+          # -z reads each file as one NUL-separated record (with (?s) making
+          # . match newlines) so a <script ...> tag whose attributes wrap
+          # onto a following line is still caught. The negative lookahead
+          # checks only the tag itself (up to its own closing >) for a src=
+          # attribute - a plain `grep -v 'src='` on the whole line would
+          # wrongly clear an inline script whose body just happens to
+          # contain the substring "src=" (e.g. `element.src = '...'`).
+          FILES=$(grep -rlPz --include='*.php' --exclude-dir=tests --exclude-dir=vendor '(?s)<script(?![^>]*\bsrc=)[\s>]' . || true)
+          if [ -n "$FILES" ]; then
+            echo "$FILES"
+            echo "::error::Inline <script> block found in a PHP file above. Move the JavaScript into a real .js file under js/ and load it via \$this->getUrl('js/<file>.js') plus <script src=\"...\"></script>, matching this module's existing js/online-designer.js pattern."
             exit 1
           fi
