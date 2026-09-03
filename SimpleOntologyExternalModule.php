@@ -256,14 +256,9 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
             $categoryList .= "<option value='{$category}'>{$name}</option>\n";
         }
 
+        $onlineDesignerJsUrl = $this->getUrl('js/online-designer.js');
         $onlineDesignerHtml = <<<EOD
-<script type="text/javascript">
-  function SIMPLE_ontology_changed(service, category){
-    var newSelection = ('SIMPLE' == service) ? category : '';
-    $('#simple_ontology_category').val(newSelection);
-  }
-  
-</script>
+<script src="{$onlineDesignerJsUrl}"></script>
 <div style='margin-bottom:3px;'>
   Select Local Ontology to use:
 </div>
