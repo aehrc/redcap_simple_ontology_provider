@@ -24,6 +24,14 @@ namespace ExternalModules {
         {
             return $this->subSettings[$key] ?? [];
         }
+
+        /** Real getUrl() returns a webroot path plus a cache-busting
+         *  ?filemtime for a resource file - this fake just echoes the path
+         *  distinctively enough for tests to assert on. */
+        public function getUrl($path)
+        {
+            return 'FAKE_MODULE_URL/' . $path;
+        }
     }
 
     class ExternalModules {}
