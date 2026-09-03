@@ -293,59 +293,12 @@ EOD;
             $categories[$cat['category']] = $cat;
         }
 
-        $values = array();
-        $categoryData = $categories[$category];
-        if ($categoryData) {
-            $type = $categoryData['values-type'];
-            $rawValues = $categoryData['values'];
-
-
-            if ($type == 'list') {
-                $list = preg_split("/\r\n|\n|\r/", $rawValues);
-                foreach ($list as $item) {
-                    $active = true;
-                    if (strncmp($item, "\\!", 2) === 0) {
-                        // \! escaped !
-                        $item = substr($item, 1); // remove leading \
-                    } else if (strncmp($item, "!", 1) === 0) {
-                        // not active
-                        $item = substr($item, 1);  // remove leading !
-                        $active = false;
-                    }
-                    $values[] = ['code' => $item, 'display' => $item, 'active' => $active];
-                }
-            } elseif ($type == 'bar') {
-                $rows = preg_split("/\r\n|\n|\r/", $rawValues);
-                foreach ($rows as $row) {
-                    $cols = explode('|', $row);
-                    $col_rev = array_reverse($cols);
-                    $code = array_pop($col_rev);
-                    $active = true;
-                    if (strncmp($code, "\\!", 2) === 0) {
-                        // \! escaped !
-                        $code = substr($code, 1); // remove leading \
-                    } else if (strncmp($code, "!", 1) === 0) {
-                        // not active
-                        $code = substr($code, 1);  // remove leading !
-                        $active = false;
-                    }
-                    $values[] = ['code' => $code, 'display' => array_pop($col_rev), 'active' => $active, 'synonyms' => $col_rev];
-                }
-            } elseif ($type == 'json') {
-                $list = json_decode($rawValues, true);
-                if (is_array($list)) {
-                    foreach ($list as $item) {
-                        if (isset($item['code']) and isset($item['display'])) {
-                            $values[] = ['code' => $item['code'], 'display' => $item['display'], 'active' => $item['active'], 'synonyms' => $item['synonyms']];
-                        }
-                    }
-                }
-            }
-        }
+        $categoryData = isset($categories[$category]) ? $categories[$category] : null;
+        $values = $categoryData ? $this->parseCategoryValues($categoryData) : array();
         //error_log(print_r($values, TRUE));
         $wordResults = array();
         $strippedSearchTerm = $this->skip_accents($search_term);
-        if ($categoryData['search-type'] == 'full') {
+        if ($categoryData && $categoryData['search-type'] == 'full') {
             $searchWords = [$strippedSearchTerm];
         } else {
             if (strlen($strippedSearchTerm) > 0 && ($strippedSearchTerm[0] == "'" || $strippedSearchTerm[0] == '"')) {
@@ -414,15 +367,19 @@ EOD;
 
         $results = array();
         foreach ($mresults as $val) {
-            // make sure result is escaped..
-            $code = \REDCap::escapeHtml($val['code']);
-            $desc = \REDCap::escapeHtml($val['display']);
-            $results[$code] = $desc;
+            // Returned raw, matching REDCap core's own BioPortalOntologyProvider:
+            // DataEntry/web_service_auto_suggest.php only reverses HTML-escaping
+            // (label_decode()) on the label, never on the value/code, so an
+            // escaped code here would be saved into the record verbatim (e.g.
+            // "Child&#039;s Nervous System" instead of "Child's Nervous
+            // System") - see GitHub issue #5. label_decode() + filter_tags()
+            // in core remain the actual sanitization boundary for the label.
+            $results[$val['code']] = $val['display'];
         }
 
         $result_limit = (is_numeric($result_limit) ? $result_limit : 20);
 
-        if (count($results) < $result_limit) {
+        if ($categoryData && count($results) < $result_limit) {
             // add no results found
             $return_no_result = $categoryData['return-no-result'];
             if ($return_no_result) {
@@ -452,39 +409,99 @@ EOD;
             $categories[$cat['category']] = $cat;
         }
 
-        $values = array();
-        $categoryData = $categories[$category];
+        $categoryData = isset($categories[$category]) ? $categories[$category] : null;
         if ($categoryData) {
-            $type = $categoryData['values-type'];
-            $rawValues = $categoryData['values'];
-
-
-            if ($type == 'list') {
-                $list = preg_split("/\r\n|\n|\r/", $rawValues);
-                foreach ($list as $item) {
-                    $values[] = ['code' => $item, 'display' => $item];
-                }
-            } elseif ($type == 'bar') {
-                $rows = preg_split("/\r\n|\n|\r/", $rawValues);
-                foreach ($rows as $row) {
-                    $cols = explode('|', $row);
-                    $values[] = ['code' => $cols[0], 'display' => $cols[1]];
-                }
-            } elseif ($type == 'json') {
-                $list = json_decode($rawValues, true);
-                if (is_array($list)) {
-                    foreach ($list as $item) {
-                        if (isset($item['code']) and isset($item['display'])) {
-                            $values[] = ['code' => $item['code'], 'display' => $item['display']];
-                        }
-                    }
-                }
+            // $values used to be built independently here as a list of
+            // ['code' => .., 'display' => ..] pairs (missing the parsing this
+            // function's sibling searchOntology() otherwise shared), and
+            // looked up with array_key_exists($value, $values) - which only
+            // ever matches numeric list indices, never a code string, so the
+            // lookup always fell through to returning the raw code unchanged.
+            // Sharing parseCategoryValues() with searchOntology() means an
+            // entry previously marked inactive (a leading '!'/'\!', still
+            // resolvable per README's "Active flag" section since a record
+            // may already hold that value from before it was deactivated)
+            // parses to the same code here as it does there.
+            $labelsByCode = [];
+            foreach ($this->parseCategoryValues($categoryData) as $item) {
+                $labelsByCode[$item['code']] = $item['display'];
             }
-            if (array_key_exists($value, $values)) {
-                return $values[$value];
+            if (array_key_exists($value, $labelsByCode)) {
+                return $labelsByCode[$value];
             }
         }
         return $value;
+    }
+
+    /**
+     * Parse a category's raw 'values' config into a list of
+     * ['code' => .., 'display' => .., 'active' => .., 'synonyms' => ..]
+     * entries, regardless of 'values-type'. Shared by searchOntology() and
+     * getLabelForValue() so the '!'/'\!' inactive-marker handling (and the
+     * documented optional fields for 'json') can't drift between the two.
+     */
+    private function parseCategoryValues($categoryData)
+    {
+        $values = array();
+        $type = $categoryData['values-type'];
+        $rawValues = $categoryData['values'];
+
+        if ($type == 'list') {
+            $list = preg_split("/\r\n|\n|\r/", $rawValues);
+            foreach ($list as $item) {
+                $active = true;
+                if (strncmp($item, "\\!", 2) === 0) {
+                    // \! escaped !
+                    $item = substr($item, 1); // remove leading \
+                } else if (strncmp($item, "!", 1) === 0) {
+                    // not active
+                    $item = substr($item, 1);  // remove leading !
+                    $active = false;
+                }
+                $values[] = ['code' => $item, 'display' => $item, 'active' => $active, 'synonyms' => []];
+            }
+        } elseif ($type == 'bar') {
+            $rows = preg_split("/\r\n|\n|\r/", $rawValues);
+            foreach ($rows as $row) {
+                $cols = explode('|', $row);
+                $col_rev = array_reverse($cols);
+                $code = array_pop($col_rev);
+                $active = true;
+                if (strncmp($code, "\\!", 2) === 0) {
+                    // \! escaped !
+                    $code = substr($code, 1); // remove leading \
+                } else if (strncmp($code, "!", 1) === 0) {
+                    // not active
+                    $code = substr($code, 1);  // remove leading !
+                    $active = false;
+                }
+                $display = array_pop($col_rev);
+                $values[] = [
+                    'code' => $code,
+                    // a row without a '|' has nothing left after popping the
+                    // code - fall back to the code itself rather than null
+                    'display' => $display !== null ? $display : $code,
+                    'active' => $active,
+                    'synonyms' => $col_rev,
+                ];
+            }
+        } elseif ($type == 'json') {
+            $list = json_decode($rawValues, true);
+            if (is_array($list)) {
+                foreach ($list as $item) {
+                    if (isset($item['code']) and isset($item['display'])) {
+                        // 'active' and 'synonyms' are documented as optional
+                        $values[] = [
+                            'code' => $item['code'],
+                            'display' => $item['display'],
+                            'active' => isset($item['active']) ? $item['active'] : true,
+                            'synonyms' => isset($item['synonyms']) ? $item['synonyms'] : [],
+                        ];
+                    }
+                }
+            }
+        }
+        return $values;
     }
 
     /*
@@ -507,16 +524,18 @@ EOD;
 
     function getHideChoice()
     {
+        global $Proj;
         $codesToHide=[];
+        $annotations = null;
         if (isset($_GET['field'])){
             $field = $_GET['field'];
-            if (isset($Proj->metadata[$_GET['field']])) {
+            if (isset($Proj->metadata[$field])) {
                 $annotations = $Proj->metadata[$field]['field_annotation'];
             }
             else if (isset($_GET['pid'])){
                 $project_id = $_GET['pid'];
                 $dd_array = \REDCap::getDataDictionary($project_id, 'array', false, array($field));
-                $annotations = $dd_array[$field]['field_annotation'];
+                $annotations = isset($dd_array[$field]) ? $dd_array[$field]['field_annotation'] : null;
             }
             if ($annotations) {
                 $offset = 0;
