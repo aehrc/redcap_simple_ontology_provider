@@ -1,0 +1,8 @@
+{
+    "name": "aehrc/redcap-simple-ontology-provider",
+    "description": "REDCap external module providing a simple, static-list-based ontology provider",
+    "type": "project",
+    "require-dev": {
+        "vimeo/psalm": "^6.16"
+    }
+}

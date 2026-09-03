@@ -1,0 +1,54 @@
+<?php
+
+/**
+ * Minimal signature stubs for the REDCap External Modules framework, so that Psalm's
+ * taint analysis has enough shape to work with. This deliberately contains only public
+ * method/function SIGNATURES (no implementation) for the framework surface this module
+ * actually calls - it is not, and must not become, a copy of REDCap core source, which
+ * is proprietary. Signatures are sourced from REDCap's own published EM Framework docs.
+ *
+ * Unlike the two FHIR-backed ontology provider modules, this one makes no outbound HTTP
+ * calls at all (static list provider), so there is no http_get/http_post stub here.
+ */
+
+namespace ExternalModules {
+    abstract class AbstractExternalModule
+    {
+        public function __construct() {}
+        public function getSubSettings($key, $project_id = null) {}
+    }
+
+    class ExternalModules {}
+}
+
+namespace {
+
+    class REDCap
+    {
+        /** @psalm-taint-escape html */
+        public static function escapeHtml($value) {}
+
+        public static function getDataDictionary($project_id, $format = 'array', $numeric = false, $fields = null, $forms = null) {}
+    }
+
+    interface OntologyProvider
+    {
+        public function searchOntology($category, $search_term, $result_limit);
+        public function getServicePrefix();
+        public function getProviderName();
+        public function getLabelForValue($category, $value);
+        public function getOnlineDesignerSection();
+    }
+
+    class OntologyManager
+    {
+        public static function getOntologyManager() {}
+        public function addProvider($provider) {}
+    }
+
+    class Project
+    {
+        public $project_id;
+        public $metadata;
+    }
+}
