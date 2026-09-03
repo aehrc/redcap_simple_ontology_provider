@@ -294,7 +294,7 @@ EOD;
         }
 
         $values = array();
-        $categoryData = $categories[$category];
+        $categoryData = isset($categories[$category]) ? $categories[$category] : null;
         if ($categoryData) {
             $type = $categoryData['values-type'];
             $rawValues = $categoryData['values'];
@@ -312,7 +312,7 @@ EOD;
                         $item = substr($item, 1);  // remove leading !
                         $active = false;
                     }
-                    $values[] = ['code' => $item, 'display' => $item, 'active' => $active];
+                    $values[] = ['code' => $item, 'display' => $item, 'active' => $active, 'synonyms' => []];
                 }
             } elseif ($type == 'bar') {
                 $rows = preg_split("/\r\n|\n|\r/", $rawValues);
@@ -336,7 +336,13 @@ EOD;
                 if (is_array($list)) {
                     foreach ($list as $item) {
                         if (isset($item['code']) and isset($item['display'])) {
-                            $values[] = ['code' => $item['code'], 'display' => $item['display'], 'active' => $item['active'], 'synonyms' => $item['synonyms']];
+                            // 'active' and 'synonyms' are documented as optional
+                            $values[] = [
+                                'code' => $item['code'],
+                                'display' => $item['display'],
+                                'active' => isset($item['active']) ? $item['active'] : true,
+                                'synonyms' => isset($item['synonyms']) ? $item['synonyms'] : [],
+                            ];
                         }
                     }
                 }
@@ -345,7 +351,7 @@ EOD;
         //error_log(print_r($values, TRUE));
         $wordResults = array();
         $strippedSearchTerm = $this->skip_accents($search_term);
-        if ($categoryData['search-type'] == 'full') {
+        if ($categoryData && $categoryData['search-type'] == 'full') {
             $searchWords = [$strippedSearchTerm];
         } else {
             if (strlen($strippedSearchTerm) > 0 && ($strippedSearchTerm[0] == "'" || $strippedSearchTerm[0] == '"')) {
@@ -422,7 +428,7 @@ EOD;
 
         $result_limit = (is_numeric($result_limit) ? $result_limit : 20);
 
-        if (count($results) < $result_limit) {
+        if ($categoryData && count($results) < $result_limit) {
             // add no results found
             $return_no_result = $categoryData['return-no-result'];
             if ($return_no_result) {
@@ -453,7 +459,7 @@ EOD;
         }
 
         $values = array();
-        $categoryData = $categories[$category];
+        $categoryData = isset($categories[$category]) ? $categories[$category] : null;
         if ($categoryData) {
             $type = $categoryData['values-type'];
             $rawValues = $categoryData['values'];
@@ -480,8 +486,17 @@ EOD;
                     }
                 }
             }
-            if (array_key_exists($value, $values)) {
-                return $values[$value];
+            // $values is a list of ['code' => .., 'display' => ..] pairs, not
+            // keyed by code - array_key_exists($value, $values) checked numeric
+            // list indices, which a code string never matches, so the lookup
+            // always fell through to returning the raw code unchanged. Build an
+            // explicit code => display map instead.
+            $labelsByCode = [];
+            foreach ($values as $item) {
+                $labelsByCode[$item['code']] = $item['display'];
+            }
+            if (array_key_exists($value, $labelsByCode)) {
+                return $labelsByCode[$value];
             }
         }
         return $value;
@@ -507,16 +522,18 @@ EOD;
 
     function getHideChoice()
     {
+        global $Proj;
         $codesToHide=[];
+        $annotations = null;
         if (isset($_GET['field'])){
             $field = $_GET['field'];
-            if (isset($Proj->metadata[$_GET['field']])) {
+            if (isset($Proj->metadata[$field])) {
                 $annotations = $Proj->metadata[$field]['field_annotation'];
             }
             else if (isset($_GET['pid'])){
                 $project_id = $_GET['pid'];
                 $dd_array = \REDCap::getDataDictionary($project_id, 'array', false, array($field));
-                $annotations = $dd_array[$field]['field_annotation'];
+                $annotations = isset($dd_array[$field]) ? $dd_array[$field]['field_annotation'] : null;
             }
             if ($annotations) {
                 $offset = 0;
