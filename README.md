@@ -1,5 +1,7 @@
 # Simple Ontology External Module
 
+For a terser, automatically generated commit-by-commit version record, see [CHANGELOG.md](./CHANGELOG.md).
+
 This redcap external module allows the definition of a custom set of 'ontologies' which can be used to provide
 autocomplete functionality for a text field. Ontologies can be defined at a site or project level, and a default value
 can be specified to be returned if no match is found. Since version 0.4, an option has been added to select to swap
