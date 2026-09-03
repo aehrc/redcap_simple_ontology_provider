@@ -70,6 +70,36 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->assertSame('does-not-exist', $label);
     }
 
+    public function testGetLabelForValueResolvesPreviouslyDeactivatedBarEntry(): void
+    {
+        // README's "Active flag" section: a deactivated entry (leading '!')
+        // is still a member of the ontology and must resolve to its label
+        // if a record already holds that value from before it was
+        // deactivated - getLabelForValue() never stripped the '!' marker
+        // that searchOntology() does, so the code map was keyed by '!col'
+        // instead of 'col' and this always fell through to the raw code.
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-values-type' => 'bar',
+            'site-values' => "coo|Cooper Derricks\n!col|Morty Cole",
+        ])];
+
+        $label = $this->module->getLabelForValue('test-cat', 'col');
+
+        $this->assertSame('Morty Cole', $label);
+    }
+
+    public function testGetLabelForValueResolvesPreviouslyDeactivatedListEntry(): void
+    {
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-values-type' => 'list',
+            'site-values' => "Active One\n!Inactive One",
+        ])];
+
+        $label = $this->module->getLabelForValue('test-cat', 'Inactive One');
+
+        $this->assertSame('Inactive One', $label);
+    }
+
     // --- searchOntology() ---
 
     public function testSearchOntologyReturnsEmptyForUnknownCategoryWithoutWarning(): void
@@ -107,6 +137,21 @@ final class SimpleOntologyExternalModuleTest extends TestCase
 
         $this->assertArrayHasKey('Active One', $results);
         $this->assertArrayNotHasKey('Inactive One', $results);
+    }
+
+    public function testSearchOntologyBarTypeRowWithoutDelimiterDoesNotWarnOrReturnNullDisplay(): void
+    {
+        // A bar-type row with no '|' has nothing left after popping the code
+        // - previously this produced display => null, reaching
+        // skip_accents()/htmlentities() with null and warning on PHP 8.1+.
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-values-type' => 'bar',
+            'site-values' => "onlycode",
+        ])];
+
+        $results = $this->module->searchOntology('test-cat', 'onlycode', 20);
+
+        $this->assertSame('onlycode', $results['onlycode']);
     }
 
     public function testSearchOntologyListTypeEntriesDoNotWarnOnMissingSynonyms(): void
@@ -184,10 +229,10 @@ final class SimpleOntologyExternalModuleTest extends TestCase
     }
 
     // --- getHideChoice() ---
-    // Regression coverage for the same missing-`global $Proj` performance bug
-    // already found and fixed in both FHIR-backed ontology modules during the
-    // original security audit - never checked against this module's own copy
-    // of the same pattern until now.
+    // Regression coverage for a missing-`global $Proj` performance bug: the
+    // same pattern is also present, and still unfixed, in both FHIR-backed
+    // ontology modules' getHideChoice() as of this writing - see
+    // ontology-provider-testing-framework's tasks.md.
 
     public function testGetHideChoiceUsesInMemoryProjectMetadataWithoutReloadingDictionary(): void
     {

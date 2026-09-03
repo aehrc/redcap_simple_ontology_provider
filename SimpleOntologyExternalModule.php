@@ -293,61 +293,8 @@ EOD;
             $categories[$cat['category']] = $cat;
         }
 
-        $values = array();
         $categoryData = isset($categories[$category]) ? $categories[$category] : null;
-        if ($categoryData) {
-            $type = $categoryData['values-type'];
-            $rawValues = $categoryData['values'];
-
-
-            if ($type == 'list') {
-                $list = preg_split("/\r\n|\n|\r/", $rawValues);
-                foreach ($list as $item) {
-                    $active = true;
-                    if (strncmp($item, "\\!", 2) === 0) {
-                        // \! escaped !
-                        $item = substr($item, 1); // remove leading \
-                    } else if (strncmp($item, "!", 1) === 0) {
-                        // not active
-                        $item = substr($item, 1);  // remove leading !
-                        $active = false;
-                    }
-                    $values[] = ['code' => $item, 'display' => $item, 'active' => $active, 'synonyms' => []];
-                }
-            } elseif ($type == 'bar') {
-                $rows = preg_split("/\r\n|\n|\r/", $rawValues);
-                foreach ($rows as $row) {
-                    $cols = explode('|', $row);
-                    $col_rev = array_reverse($cols);
-                    $code = array_pop($col_rev);
-                    $active = true;
-                    if (strncmp($code, "\\!", 2) === 0) {
-                        // \! escaped !
-                        $code = substr($code, 1); // remove leading \
-                    } else if (strncmp($code, "!", 1) === 0) {
-                        // not active
-                        $code = substr($code, 1);  // remove leading !
-                        $active = false;
-                    }
-                    $values[] = ['code' => $code, 'display' => array_pop($col_rev), 'active' => $active, 'synonyms' => $col_rev];
-                }
-            } elseif ($type == 'json') {
-                $list = json_decode($rawValues, true);
-                if (is_array($list)) {
-                    foreach ($list as $item) {
-                        if (isset($item['code']) and isset($item['display'])) {
-                            // 'active' and 'synonyms' are documented as optional
-                            $values[] = [
-                                'code' => $item['code'],
-                                'display' => $item['display'],
-                                'active' => isset($item['active']) ? $item['active'] : true,
-                                'synonyms' => isset($item['synonyms']) ? $item['synonyms'] : [],
-                            ];
-                        }
-                    }
-                }
-            }
-        }
+        $values = $categoryData ? $this->parseCategoryValues($categoryData) : array();
         //error_log(print_r($values, TRUE));
         $wordResults = array();
         $strippedSearchTerm = $this->skip_accents($search_term);
@@ -462,41 +409,21 @@ EOD;
             $categories[$cat['category']] = $cat;
         }
 
-        $values = array();
         $categoryData = isset($categories[$category]) ? $categories[$category] : null;
         if ($categoryData) {
-            $type = $categoryData['values-type'];
-            $rawValues = $categoryData['values'];
-
-
-            if ($type == 'list') {
-                $list = preg_split("/\r\n|\n|\r/", $rawValues);
-                foreach ($list as $item) {
-                    $values[] = ['code' => $item, 'display' => $item];
-                }
-            } elseif ($type == 'bar') {
-                $rows = preg_split("/\r\n|\n|\r/", $rawValues);
-                foreach ($rows as $row) {
-                    $cols = explode('|', $row);
-                    $values[] = ['code' => $cols[0], 'display' => $cols[1]];
-                }
-            } elseif ($type == 'json') {
-                $list = json_decode($rawValues, true);
-                if (is_array($list)) {
-                    foreach ($list as $item) {
-                        if (isset($item['code']) and isset($item['display'])) {
-                            $values[] = ['code' => $item['code'], 'display' => $item['display']];
-                        }
-                    }
-                }
-            }
-            // $values is a list of ['code' => .., 'display' => ..] pairs, not
-            // keyed by code - array_key_exists($value, $values) checked numeric
-            // list indices, which a code string never matches, so the lookup
-            // always fell through to returning the raw code unchanged. Build an
-            // explicit code => display map instead.
+            // $values used to be built independently here as a list of
+            // ['code' => .., 'display' => ..] pairs (missing the parsing this
+            // function's sibling searchOntology() otherwise shared), and
+            // looked up with array_key_exists($value, $values) - which only
+            // ever matches numeric list indices, never a code string, so the
+            // lookup always fell through to returning the raw code unchanged.
+            // Sharing parseCategoryValues() with searchOntology() means an
+            // entry previously marked inactive (a leading '!'/'\!', still
+            // resolvable per README's "Active flag" section since a record
+            // may already hold that value from before it was deactivated)
+            // parses to the same code here as it does there.
             $labelsByCode = [];
-            foreach ($values as $item) {
+            foreach ($this->parseCategoryValues($categoryData) as $item) {
                 $labelsByCode[$item['code']] = $item['display'];
             }
             if (array_key_exists($value, $labelsByCode)) {
@@ -504,6 +431,77 @@ EOD;
             }
         }
         return $value;
+    }
+
+    /**
+     * Parse a category's raw 'values' config into a list of
+     * ['code' => .., 'display' => .., 'active' => .., 'synonyms' => ..]
+     * entries, regardless of 'values-type'. Shared by searchOntology() and
+     * getLabelForValue() so the '!'/'\!' inactive-marker handling (and the
+     * documented optional fields for 'json') can't drift between the two.
+     */
+    private function parseCategoryValues($categoryData)
+    {
+        $values = array();
+        $type = $categoryData['values-type'];
+        $rawValues = $categoryData['values'];
+
+        if ($type == 'list') {
+            $list = preg_split("/\r\n|\n|\r/", $rawValues);
+            foreach ($list as $item) {
+                $active = true;
+                if (strncmp($item, "\\!", 2) === 0) {
+                    // \! escaped !
+                    $item = substr($item, 1); // remove leading \
+                } else if (strncmp($item, "!", 1) === 0) {
+                    // not active
+                    $item = substr($item, 1);  // remove leading !
+                    $active = false;
+                }
+                $values[] = ['code' => $item, 'display' => $item, 'active' => $active, 'synonyms' => []];
+            }
+        } elseif ($type == 'bar') {
+            $rows = preg_split("/\r\n|\n|\r/", $rawValues);
+            foreach ($rows as $row) {
+                $cols = explode('|', $row);
+                $col_rev = array_reverse($cols);
+                $code = array_pop($col_rev);
+                $active = true;
+                if (strncmp($code, "\\!", 2) === 0) {
+                    // \! escaped !
+                    $code = substr($code, 1); // remove leading \
+                } else if (strncmp($code, "!", 1) === 0) {
+                    // not active
+                    $code = substr($code, 1);  // remove leading !
+                    $active = false;
+                }
+                $display = array_pop($col_rev);
+                $values[] = [
+                    'code' => $code,
+                    // a row without a '|' has nothing left after popping the
+                    // code - fall back to the code itself rather than null
+                    'display' => $display !== null ? $display : $code,
+                    'active' => $active,
+                    'synonyms' => $col_rev,
+                ];
+            }
+        } elseif ($type == 'json') {
+            $list = json_decode($rawValues, true);
+            if (is_array($list)) {
+                foreach ($list as $item) {
+                    if (isset($item['code']) and isset($item['display'])) {
+                        // 'active' and 'synonyms' are documented as optional
+                        $values[] = [
+                            'code' => $item['code'],
+                            'display' => $item['display'],
+                            'active' => isset($item['active']) ? $item['active'] : true,
+                            'synonyms' => isset($item['synonyms']) ? $item['synonyms'] : [],
+                        ];
+                    }
+                }
+            }
+        }
+        return $values;
     }
 
     /*
