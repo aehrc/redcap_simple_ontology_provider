@@ -143,6 +143,27 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->assertCount(2, $results);
     }
 
+    public function testSearchOntologyReturnsRawUnescapedCodeAndDisplay(): void
+    {
+        // Regression coverage for GitHub issue #5: escaping the code/display
+        // here meant an escaped code (e.g. "Child&#039;s Nervous System")
+        // was saved into the record verbatim, since REDCap core's
+        // web_service_auto_suggest.php only ever reverses HTML-escaping
+        // (label_decode()) on the label, never on the value/code. REDCap's
+        // own built-in BioPortalOntologyProvider returns both fields raw for
+        // the same reason - label_decode()/filter_tags() in core are the
+        // actual sanitization boundary.
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-values-type' => 'list',
+            'site-values' => "Child's Nervous System",
+        ])];
+
+        $results = $this->module->searchOntology('test-cat', 'Nervous', 20);
+
+        $this->assertArrayHasKey("Child's Nervous System", $results);
+        $this->assertSame("Child's Nervous System", $results["Child's Nervous System"]);
+    }
+
     public function testSearchOntologyReturnsConfiguredFallbackWhenBelowResultLimit(): void
     {
         // Note the actual semantics here: "fewer results than the requested

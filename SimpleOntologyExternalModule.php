@@ -420,10 +420,14 @@ EOD;
 
         $results = array();
         foreach ($mresults as $val) {
-            // make sure result is escaped..
-            $code = \REDCap::escapeHtml($val['code']);
-            $desc = \REDCap::escapeHtml($val['display']);
-            $results[$code] = $desc;
+            // Returned raw, matching REDCap core's own BioPortalOntologyProvider:
+            // DataEntry/web_service_auto_suggest.php only reverses HTML-escaping
+            // (label_decode()) on the label, never on the value/code, so an
+            // escaped code here would be saved into the record verbatim (e.g.
+            // "Child&#039;s Nervous System" instead of "Child's Nervous
+            // System") - see GitHub issue #5. label_decode() + filter_tags()
+            // in core remain the actual sanitization boundary for the label.
+            $results[$val['code']] = $val['display'];
         }
 
         $result_limit = (is_numeric($result_limit) ? $result_limit : 20);
