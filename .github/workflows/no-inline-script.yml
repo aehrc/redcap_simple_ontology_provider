@@ -1,0 +1,25 @@
+name: no-inline-script
+
+# Guards against a <script> block creeping back into PHP (the pattern
+# js-lint.yml's ESLint job can't see, since it's path-filtered to js/**).
+# Runs on every PR/push unconditionally rather than path-filtered, since a
+# reintroduced inline script could land in any .php file, not just ones
+# already known to have had one.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fail on inline <script> blocks in PHP
+        run: |
+          if grep -rnE '<script(\s|>)' --include='*.php' --exclude-dir=tests --exclude-dir=vendor . | grep -v 'src='; then
+            echo "::error::Inline <script> block found in a PHP file - move the JS into a real .js file under js/ and load it via \$this->getUrl() instead (see openspec/changes/ontology-provider-extract-inline-js)."
+            exit 1
+          fi

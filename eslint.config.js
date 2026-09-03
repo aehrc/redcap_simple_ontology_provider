@@ -11,7 +11,6 @@ module.exports = [
       globals: {
         $: 'readonly',
         jQuery: 'readonly',
-        update_ontology_selection: 'readonly',
       },
     },
     plugins: {
