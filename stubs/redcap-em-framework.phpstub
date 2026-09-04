@@ -14,11 +14,27 @@
 namespace ExternalModules {
     abstract class AbstractExternalModule
     {
+        public $PREFIX;
+
         public function __construct() {}
         public function getSubSettings($key, $project_id = null) {}
+        public function getUrl($path) {}
+        public function getProjectId() {}
+        public function getProjectSetting($key, $project_id = null) {}
+        public function setProjectSetting($key, $value, $project_id = null) {}
+        public function getSystemSetting($key) {}
+        public function setSystemSetting($key, $value) {}
+        public function log($message, $parameters = []) {}
+        public function isSuperUser() {}
+
+        /** @psalm-taint-sink sql $sql */
+        public function query($sql, $parameters = null) {}
     }
 
-    class ExternalModules {}
+    class ExternalModules {
+        public static function hasModuleConfigurationUserRights($prefix) {}
+        public static function isSuperUser() {}
+    }
 }
 
 namespace {

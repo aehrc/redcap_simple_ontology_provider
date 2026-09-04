@@ -170,6 +170,34 @@ field.
 ```
 ![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
 
+## Refreshing the cache
+
+REDCap caches the display text for each code the first time a project uses it, and reads from that
+cache from then on instead of asking this module again. This means that after you edit a
+category's values, existing records can keep showing the *old* display text until the cache is
+corrected - see [issue #10](https://github.com/aehrc/redcap_simple_ontology_provider/issues/10).
+
+Two links are provided to fix this, matching where a category is defined:
+
+- **Refresh Ontology Cache** (a project page, under this project's External Modules configuration)
+  refreshes cached entries for this project's own project-level categories. Anyone who can already
+  configure this module's project settings can use it.
+- **Simple Ontology: Refresh Cache** (a Control Center page, REDCap admins only) refreshes cached
+  entries for a site-wide category, across every project that has ever cached a value for it. A
+  project that has defined its own project-level category with the same name is skipped here - use
+  that project's own page instead, so its cache is corrected with its own values rather than the
+  site-wide ones.
+
+Both pages work the same way: pick a category, preview the entries whose cached label no longer
+matches what the category currently defines (a code that no longer exists in the category at all is
+left alone, since there is nothing correct to replace it with), then apply the correction to the
+ones you confirm.
+
+If you save a category with different values than it had before, the module remembers this and
+shows a reminder - both the next time you open this module's configuration dialog, and by
+pre-selecting that category the next time you open the relevant refresh page - so you don't have to
+remember to check on your own.
+
 # Ontology Provider
 
 As part of release 8.8.1 of REDCap an extension point was added to allow external modules to become an 

@@ -29,6 +29,14 @@ use ExternalModules\ExternalModules;
 
 class SimpleOntologyExternalModule extends AbstractExternalModule implements \OntologyProvider
 {
+    /**
+     * Snapshot of every category's 'values' string, keyed by category name,
+     * taken by validateSettings() just before a save commits. Read back by
+     * redcap_module_save_configuration() - within that one save request the
+     * EM framework hands both calls the same module instance (see design.md
+     * Decision 5), so this instance property survives from one to the other.
+     */
+    private $categoriesBeforeSave = null;
 
     public function __construct()
     {
@@ -44,6 +52,11 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
 
     public function validateSettings($settings)
     {
+        $this->categoriesBeforeSave = [];
+        foreach ($this->allCurrentCategories() as $cat) {
+            $this->categoriesBeforeSave[$cat['category']] = $cat['values'];
+        }
+
         $errors = '';
 
         // make sure category has no markup or ' " char
@@ -200,7 +213,13 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
         return $subSettings;
     }
 
-    function getProjectCategories()
+    /**
+     * @param mixed $projectId Defaults to the current project context. Pass
+     *   explicitly to read another project's category list (needed by the
+     *   control-center cache refresh, which has to check per-project
+     *   overrides without switching page context - see design.md Decision 3).
+     */
+    function getProjectCategories($projectId = null)
     {
         $key = 'project-category-list';
         $keys = ['project-category' => 'category',
@@ -212,7 +231,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
             'project-values-type' => 'values-type',
             'project-values' => 'values'];
         $subSettings = [];
-        $rawSettings = $this->getSubSettings($key);
+        $rawSettings = $this->getSubSettings($key, $projectId);
         //error_log("project_settings = ".print_r($rawSettings, TRUE));
         foreach ($rawSettings as $data) {
             $subSetting = [];
@@ -391,41 +410,63 @@ EOD;
 
     /**
      *  Takes the value and gives back the label for the value.
+     *
+     * @param mixed $projectId Defaults to the current project context; pass
+     *   explicitly to resolve the label as it would appear in another
+     *   project (used by cache-refresh scope resolution).
      */
-    public function getLabelForValue($category, $value)
+    public function getLabelForValue($category, $value, $projectId = null)
     {
-        $systemCategories = $this->getSystemCategories();
-        $projectCategories = $this->getProjectCategories();
+        // $values used to be built independently here as a list of
+        // ['code' => .., 'display' => ..] pairs (missing the parsing this
+        // function's sibling searchOntology() otherwise shared), and
+        // looked up with array_key_exists($value, $values) - which only
+        // ever matches numeric list indices, never a code string, so the
+        // lookup always fell through to returning the raw code unchanged.
+        // Sharing parseCategoryValues() with searchOntology() means an
+        // entry previously marked inactive (a leading '!'/'\!', still
+        // resolvable per README's "Active flag" section since a record
+        // may already hold that value from before it was deactivated)
+        // parses to the same code here as it does there.
+        $labelsByCode = $this->labelMapForCategory($category, $projectId);
+        if (array_key_exists($value, $labelsByCode)) {
+            return $labelsByCode[$value];
+        }
+        return $value;
+    }
+
+    /**
+     * Merge system and project (project-overrides-system) category
+     * definitions for $category, as visible in $projectId (defaults to the
+     * current project context), into a code => current display map.
+     */
+    private function labelMapForCategory($category, $projectId = null)
+    {
         $categories = [];
-        foreach ($systemCategories as $cat) {
+        foreach ($this->getSystemCategories() as $cat) {
             $categories[$cat['category']] = $cat;
         }
-        foreach ($projectCategories as $cat) {
+        foreach ($this->getProjectCategories($projectId) as $cat) {
             $categories[$cat['category']] = $cat;
         }
 
         $categoryData = isset($categories[$category]) ? $categories[$category] : null;
-        if ($categoryData) {
-            // $values used to be built independently here as a list of
-            // ['code' => .., 'display' => ..] pairs (missing the parsing this
-            // function's sibling searchOntology() otherwise shared), and
-            // looked up with array_key_exists($value, $values) - which only
-            // ever matches numeric list indices, never a code string, so the
-            // lookup always fell through to returning the raw code unchanged.
-            // Sharing parseCategoryValues() with searchOntology() means an
-            // entry previously marked inactive (a leading '!'/'\!', still
-            // resolvable per README's "Active flag" section since a record
-            // may already hold that value from before it was deactivated)
-            // parses to the same code here as it does there.
-            $labelsByCode = [];
-            foreach ($this->parseCategoryValues($categoryData) as $item) {
-                $labelsByCode[$item['code']] = $item['display'];
-            }
-            if (array_key_exists($value, $labelsByCode)) {
-                return $labelsByCode[$value];
-            }
+        return $categoryData ? $this->labelMapFor($categoryData) : [];
+    }
+
+    /**
+     * Parse a single category definition into a code => current display map,
+     * with no system/project merging (used for the control-center cache
+     * refresh, which must resolve strictly against the system definition -
+     * see design.md Decision 3).
+     */
+    private function labelMapFor($categoryData)
+    {
+        $map = [];
+        foreach ($this->parseCategoryValues($categoryData) as $item) {
+            $map[$item['code']] = $item['display'];
         }
-        return $value;
+        return $map;
     }
 
     /**
@@ -546,5 +587,385 @@ EOD;
         }
 
         return $codesToHide;
+    }
+
+    // --- Ontology cache refresh (aehrc/redcap_simple_ontology_provider#10) ---
+    //
+    // redcap_web_service_cache (project_id, service, category, value, label) is
+    // populated the first time a project resolves a code and read from then on
+    // instead of calling this module again, so editing a category's values
+    // doesn't reach records that already cached the old display. The methods
+    // below let a project link and a control-center link preview and apply
+    // corrections. See openspec/changes/simple-ontology-cache-refresh/design.md
+    // for the full rationale behind the scope split and the shadow-check.
+
+    /**
+     * Cached (project_id, value, label) rows for this module's service under
+     * $category. $projectId narrows to one project; null means every project
+     * that has ever cached a value for this category.
+     *
+     * @return list<array{project_id: mixed, value: string, label: string}>
+     */
+    private function getCachedEntries($category, $projectId = null)
+    {
+        if ($projectId !== null) {
+            $result = $this->query(
+                "select project_id, value, label from redcap_web_service_cache
+                 where service = ? and category = ? and project_id = ?",
+                [$this->getServicePrefix(), $category, $projectId]
+            );
+        } else {
+            $result = $this->query(
+                "select project_id, value, label from redcap_web_service_cache
+                 where service = ? and category = ?",
+                [$this->getServicePrefix(), $category]
+            );
+        }
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    /**
+     * The code => current-display map that should be used to judge whether a
+     * cache row for ($category, $rowProjectId) is stale, for the given
+     * refresh scope.
+     *
+     * - Project scope ($scopeProjectId set): the normal system-overridden-
+     *   by-project merge, bound to that project - identical to what a record
+     *   in that project actually resolves to.
+     * - System scope ($scopeProjectId === null): the system category
+     *   definition only. If $rowProjectId has its own project-level category
+     *   of the same name, that project's cache belongs to the project-scope
+     *   page instead, so null is returned to signal "skip this project".
+     *
+     * Returns null when there is nothing to resolve against (unknown
+     * category, or a system-scope project that shadows it).
+     */
+    private function resolveCodeMapForScope($category, $scopeProjectId, $rowProjectId)
+    {
+        if ($scopeProjectId !== null) {
+            return $this->labelMapForCategory($category, $rowProjectId);
+        }
+
+        foreach ($this->getProjectCategories($rowProjectId) as $projectCategory) {
+            if ($projectCategory['category'] === $category) {
+                return null;
+            }
+        }
+
+        foreach ($this->getSystemCategories() as $systemCategory) {
+            if ($systemCategory['category'] === $category) {
+                return $this->labelMapFor($systemCategory);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find cache rows for $category whose label no longer matches what the
+     * category's active configuration would return today. A code with no
+     * current match at all (removed/renamed) is left out entirely rather
+     * than being reported as stale, since there is no correct new label to
+     * offer for it.
+     *
+     * $projectId null means system/control-center scope (every project that
+     * has cached a value for this category, except one that shadows it with
+     * its own project-level category of the same name - see
+     * resolveCodeMapForScope()). $projectId set means project scope (that
+     * project's own cache rows only).
+     *
+     * @return array{
+     *   stale: list<array{project_id: mixed, value: string, old_label: string, new_label: string}>,
+     *   skippedProjects: list<array{project_id: mixed, reason: string}>
+     * }
+     */
+    public function findStaleCacheEntries($category, $projectId = null)
+    {
+        $stale = [];
+        $skippedProjects = [];
+
+        if ($projectId === null) {
+            $categoryExists = false;
+            foreach ($this->getSystemCategories() as $systemCategory) {
+                if ($systemCategory['category'] === $category) {
+                    $categoryExists = true;
+                    break;
+                }
+            }
+            if (!$categoryExists) {
+                return ['stale' => [], 'skippedProjects' => []];
+            }
+        }
+
+        $rowsByProject = [];
+        foreach ($this->getCachedEntries($category, $projectId) as $row) {
+            $rowsByProject[$row['project_id']][] = $row;
+        }
+
+        foreach ($rowsByProject as $rowProjectId => $projectRows) {
+            // Use each row's own project_id (not the array-grouping key,
+            // which PHP silently casts to int for a numeric-string key) so
+            // the returned project_id always matches what the DB actually holds.
+            $codeMap = $this->resolveCodeMapForScope($category, $projectId, $rowProjectId);
+            if ($codeMap === null) {
+                if ($projectId === null) {
+                    $skippedProjects[] = [
+                        'project_id' => $projectRows[0]['project_id'],
+                        'reason' => 'project defines its own category with this name',
+                    ];
+                }
+                continue;
+            }
+            foreach ($projectRows as $row) {
+                if (!array_key_exists($row['value'], $codeMap)) {
+                    continue;
+                }
+                $newLabel = $codeMap[$row['value']];
+                if ($newLabel !== $row['label']) {
+                    $stale[] = [
+                        'project_id' => $row['project_id'],
+                        'value' => $row['value'],
+                        'old_label' => $row['label'],
+                        'new_label' => $newLabel,
+                    ];
+                }
+            }
+        }
+
+        return ['stale' => $stale, 'skippedProjects' => $skippedProjects];
+    }
+
+    /**
+     * Apply a user-confirmed subset of stale entries for $category. The new
+     * label for each entry is re-derived right now (never trusted from
+     * $confirmedEntries, which may be an outdated preview snapshot), and only
+     * entries that are still actually stale as of this call are written.
+     *
+     * @param list<array{project_id: mixed, value: string}> $confirmedEntries
+     * @return list<array{project_id: mixed, value: string, old_label: string, new_label: string}>
+     */
+    public function applyCacheRefresh($category, $projectId, array $confirmedEntries)
+    {
+        $valuesByProject = [];
+        foreach ($confirmedEntries as $entry) {
+            $valuesByProject[$entry['project_id']][] = $entry['value'];
+        }
+
+        $updated = [];
+        foreach ($valuesByProject as $rowProjectId => $confirmedValues) {
+            $codeMap = $this->resolveCodeMapForScope($category, $projectId, $rowProjectId);
+            if ($codeMap === null) {
+                // No longer resolvable against this scope as of right now
+                // (e.g. the project has since defined its own override) -
+                // skip rather than write a value the current scope can't justify.
+                continue;
+            }
+            foreach ($this->getCachedEntries($category, $rowProjectId) as $row) {
+                if (!in_array($row['value'], $confirmedValues, true)) {
+                    continue;
+                }
+                if (!array_key_exists($row['value'], $codeMap)) {
+                    continue;
+                }
+                $newLabel = $codeMap[$row['value']];
+                if ($newLabel === $row['label']) {
+                    continue;
+                }
+                $this->query(
+                    "update redcap_web_service_cache set label = ?
+                     where project_id = ? and service = ? and category = ? and value = ?",
+                    [$newLabel, $row['project_id'], $this->getServicePrefix(), $category, $row['value']]
+                );
+                $this->log('Refreshed Simple Ontology cache entry', [
+                    'category' => $category,
+                    'value' => $row['value'],
+                    'old_label' => $row['label'],
+                    'new_label' => $newLabel,
+                    'project_id' => $row['project_id'],
+                ]);
+                $updated[] = [
+                    'project_id' => $row['project_id'],
+                    'value' => $row['value'],
+                    'old_label' => $row['label'],
+                    'new_label' => $newLabel,
+                ];
+            }
+        }
+
+        $this->clearCacheRefreshPending($projectId, $category);
+
+        return $updated;
+    }
+
+    // --- Save-time "you may need to refresh the cache" reminder ---
+
+    /**
+     * System categories, plus project categories only when there is an
+     * actual project to fetch them for. getProjectCategories() is a
+     * project-scoped settings lookup - the real framework throws ("The
+     * Project Id cannot be null!") if it's called with no project context
+     * at all, which a system-level (Control Center) settings save has none
+     * of. getSystemCategories() has no such restriction.
+     */
+    private function allCurrentCategories($projectId = null)
+    {
+        $projectId = $projectId !== null ? $projectId : $this->getProjectId();
+        $categories = $this->getSystemCategories();
+        if ($projectId) {
+            $categories = array_merge($categories, $this->getProjectCategories($projectId));
+        }
+        return $categories;
+    }
+
+    public function redcap_module_save_configuration($project_id)
+    {
+        $before = $this->categoriesBeforeSave ?? [];
+        $changed = [];
+        foreach ($this->allCurrentCategories($project_id) as $cat) {
+            $previousValues = $before[$cat['category']] ?? null;
+            if ($previousValues !== null && $previousValues !== $cat['values']) {
+                $changed[] = $cat['category'];
+            }
+        }
+
+        if (!empty($changed)) {
+            $pending = $this->getCacheRefreshPending($project_id);
+            $this->setCacheRefreshPending($project_id, array_merge($pending, $changed));
+        }
+    }
+
+    public function redcap_module_configuration_settings($project_id, $settings)
+    {
+        $pending = $this->getCacheRefreshPending($project_id);
+        if (!empty($pending)) {
+            $refreshPageUrl = $project_id
+                ? $this->getUrl('pages/refresh_cache_project.php')
+                : $this->getUrl('pages/refresh_cache_admin.php');
+            $categoryList = implode(', ', $pending);
+            array_unshift($settings, [
+                'key' => 'cache-refresh-reminder',
+                'name' => "The following ontology categories have changed values since they were last cached: "
+                    . "<strong>{$categoryList}</strong>. Existing records may still show the old display text "
+                    . "until the cache is refreshed. <a href='{$refreshPageUrl}' target='_blank'>Open the cache refresh page</a>.",
+                'type' => 'descriptive',
+            ]);
+        }
+        return $settings;
+    }
+
+    /**
+     * Category names flagged as possibly needing a cache refresh for the
+     * given scope (project id, or null for system scope) - read by the
+     * refresh pages to pre-select/highlight a flagged category. Public: the
+     * module pages that render the category picker call this directly.
+     */
+    public function getCacheRefreshPending($projectId)
+    {
+        $raw = $projectId ? $this->getProjectSetting('cache-refresh-pending') : $this->getSystemSetting('cache-refresh-pending');
+        $list = json_decode((string)$raw, true);
+        return is_array($list) ? $list : [];
+    }
+
+    private function setCacheRefreshPending($projectId, array $categories)
+    {
+        $categories = array_values(array_unique($categories));
+        $value = empty($categories) ? null : json_encode($categories);
+        if ($projectId) {
+            $this->setProjectSetting('cache-refresh-pending', $value);
+        } else {
+            $this->setSystemSetting('cache-refresh-pending', $value);
+        }
+    }
+
+    private function clearCacheRefreshPending($projectId, $category)
+    {
+        $pending = $this->getCacheRefreshPending($projectId);
+        $this->setCacheRefreshPending($projectId, array_values(array_diff($pending, [$category])));
+    }
+
+    // --- Module page access and ajax wiring ---
+
+    /**
+     * Project links default to REDCap's general Project Design right (see
+     * AbstractExternalModule::redcap_module_link_check_display()); the
+     * refresh-cache-project link should instead follow this module's own
+     * per-user configuration right, since refreshing the cache is a direct
+     * consequence of editing the same category values that right already
+     * permits (see design.md Decision 4). This hook also gates direct
+     * navigation to the page URL, not just the nav link's visibility.
+     */
+    public function redcap_module_link_check_display($project_id, $link)
+    {
+        if (($link['key'] ?? null) === 'refresh-cache-project') {
+            return ExternalModules::hasModuleConfigurationUserRights($this->PREFIX) ? $link : null;
+        }
+        return parent::redcap_module_link_check_display($project_id, $link);
+    }
+
+    /**
+     * Ajax requests don't route through redcap_module_link_check_display(),
+     * so permission is re-checked here independently of whichever page the
+     * request came from.
+     */
+    private function currentUserMayRefreshCache($project_id)
+    {
+        if ($project_id) {
+            return ExternalModules::hasModuleConfigurationUserRights($this->PREFIX);
+        }
+        return $this->isSuperUser();
+    }
+
+    private function categoryIsValidForScope($category, $project_id)
+    {
+        if (!is_string($category) || $category === '') {
+            return false;
+        }
+        $categories = $project_id ? $this->getProjectCategories($project_id) : $this->getSystemCategories();
+        foreach ($categories as $cat) {
+            if ($cat['category'] === $category) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function redcap_module_ajax($action, $payload, $project_id)
+    {
+        if (!$this->currentUserMayRefreshCache($project_id)) {
+            return ['error' => 'You are not authorized to refresh the ontology cache.'];
+        }
+
+        $category = is_array($payload) ? ($payload['category'] ?? null) : null;
+        if (!$this->categoryIsValidForScope($category, $project_id)) {
+            return ['error' => 'Unknown category.'];
+        }
+
+        if ($action === 'preview-cache-refresh') {
+            $result = $this->findStaleCacheEntries($category, $project_id ?: null);
+            return [
+                'category' => $category,
+                'stale' => $result['stale'],
+                'skippedProjects' => $result['skippedProjects'],
+            ];
+        }
+
+        if ($action === 'apply-cache-refresh') {
+            $entries = is_array($payload['entries'] ?? null) ? $payload['entries'] : [];
+            if ($project_id) {
+                // Ignore anything the client claims about another project -
+                // the project-scope action may only ever touch its own project_id.
+                $entries = array_values(array_filter($entries, function ($entry) use ($project_id) {
+                    return isset($entry['project_id']) && (string)$entry['project_id'] === (string)$project_id;
+                }));
+            }
+            $updated = $this->applyCacheRefresh($category, $project_id ?: null, $entries);
+            return ['category' => $category, 'updated' => $updated];
+        }
+
+        return ['error' => 'Unknown action.'];
     }
 }
