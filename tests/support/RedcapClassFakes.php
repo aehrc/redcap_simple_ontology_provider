@@ -92,6 +92,12 @@ namespace ExternalModules {
             return 'FAKE_MODULE_URL/' . $path;
         }
 
+        /** Real value is a dotted namespace path (e.g. "ExternalModules.AEHRC.SimpleOntologyExternalModule") - this fake just needs to be a distinctive, HTML-attribute-safe string. */
+        public function getJavascriptModuleObjectName()
+        {
+            return 'FAKE.Js.ModuleObject';
+        }
+
         public function getProjectSetting($key, $project_id = null)
         {
             return $this->projectSettings[$key] ?? null;
@@ -139,11 +145,13 @@ namespace ExternalModules {
         }
 
         /**
-         * Fakes the two query shapes SimpleOntologyExternalModule actually
-         * issues against redcap_web_service_cache - a select (with or
-         * without a project_id filter) and a single-row label update. This
-         * is not a SQL parser: it dispatches on the query's leading verb and
-         * assumes parameter order/position exactly as the module uses it.
+         * Fakes the query shapes SimpleOntologyExternalModule actually
+         * issues against redcap_web_service_cache - a select (with an
+         * optional project_id filter, and/or an optional "value in (...)"
+         * filter) and a single-row label update. This is not a SQL parser:
+         * it dispatches on the query's leading verb and a couple of
+         * substring checks, assuming parameter order/position exactly as
+         * the module uses it (service, category, [project_id], [values...]).
          */
         public function query($sql, $parameters = [])
         {
@@ -159,6 +167,12 @@ namespace ExternalModules {
                     $projectId = $parameters[2];
                     $rows = array_values(array_filter($rows, function ($row) use ($projectId) {
                         return (string)$row['project_id'] === (string)$projectId;
+                    }));
+                }
+                if (stripos($normalized, 'value in (') !== false) {
+                    $values = array_slice($parameters, 3);
+                    $rows = array_values(array_filter($rows, function ($row) use ($values) {
+                        return in_array($row['value'], $values, true);
                     }));
                 }
                 return new FakeQueryResult(array_map(function ($row) {

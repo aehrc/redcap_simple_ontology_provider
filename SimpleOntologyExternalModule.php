@@ -30,11 +30,14 @@ use ExternalModules\ExternalModules;
 class SimpleOntologyExternalModule extends AbstractExternalModule implements \OntologyProvider
 {
     /**
-     * Snapshot of every category's 'values' string, keyed by category name,
-     * taken by validateSettings() just before a save commits. Read back by
+     * Snapshot of every category's 'values' string just before a save
+     * commits, taken by validateSettings() and read back by
      * redcap_module_save_configuration() - within that one save request the
      * EM framework hands both calls the same module instance (see design.md
      * Decision 5), so this instance property survives from one to the other.
+     * Shape: categoryValuesByScope()'s {system, project} maps - kept
+     * separate per scope, not merged by bare category name (see
+     * categoryValuesByScope()'s docblock for why that matters).
      */
     private $categoriesBeforeSave = null;
 
@@ -52,10 +55,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
 
     public function validateSettings($settings)
     {
-        $this->categoriesBeforeSave = [];
-        foreach ($this->allCurrentCategories() as $cat) {
-            $this->categoriesBeforeSave[$cat['category']] = $cat['values'];
-        }
+        $this->categoriesBeforeSave = $this->categoryValuesByScope();
 
         $errors = '';
 
@@ -608,25 +608,51 @@ EOD;
      */
     private function getCachedEntries($category, $projectId = null)
     {
+        $condition = "service = ? and category = ?";
+        $params = [$this->getServicePrefix(), $category];
         if ($projectId !== null) {
-            $result = $this->query(
-                "select project_id, value, label from redcap_web_service_cache
-                 where service = ? and category = ? and project_id = ?",
-                [$this->getServicePrefix(), $category, $projectId]
-            );
-        } else {
-            $result = $this->query(
-                "select project_id, value, label from redcap_web_service_cache
-                 where service = ? and category = ?",
-                [$this->getServicePrefix(), $category]
-            );
+            $condition .= " and project_id = ?";
+            $params[] = $projectId;
         }
+        return $this->fetchCachedEntries($condition, $params);
+    }
+
+    /**
+     * Cached rows for one project's category, limited to specific values -
+     * used by applyCacheRefresh() so it doesn't have to fetch a project's
+     * entire cached category just to filter it down client-side to the
+     * handful of confirmed rows.
+     *
+     * @param list<string> $values
+     * @return list<array{project_id: mixed, value: string, label: string}>
+     */
+    private function getCachedEntriesForValues($category, $projectId, array $values)
+    {
+        if (empty($values)) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($values), '?'));
+        $condition = "service = ? and category = ? and project_id = ? and value in ($placeholders)";
+        $params = array_merge([$this->getServicePrefix(), $category, $projectId], $values);
+        return $this->fetchCachedEntries($condition, $params);
+    }
+
+    /** @return list<array{project_id: mixed, value: string, label: string}> */
+    private function fetchCachedEntries($condition, array $params)
+    {
+        $result = $this->query(
+            "select project_id, value, label from redcap_web_service_cache where $condition",
+            $params
+        );
         $rows = [];
         while ($row = $result->fetch_assoc()) {
             $rows[] = $row;
         }
         return $rows;
     }
+
+    /** Sentinel: $rowProjectId shadows the system category with its own project-level override (see resolveCodeMapForScope()). Distinct from null so callers never have to privately reconstruct which of the two "nothing to resolve against" cases applies. */
+    private const SCOPE_SHADOWED = '__shadowed_by_project_category__';
 
     /**
      * The code => current-display map that should be used to judge whether a
@@ -635,14 +661,16 @@ EOD;
      *
      * - Project scope ($scopeProjectId set): the normal system-overridden-
      *   by-project merge, bound to that project - identical to what a record
-     *   in that project actually resolves to.
+     *   in that project actually resolves to. Returns an empty map if the
+     *   category doesn't exist in that project's merged view.
      * - System scope ($scopeProjectId === null): the system category
      *   definition only. If $rowProjectId has its own project-level category
      *   of the same name, that project's cache belongs to the project-scope
-     *   page instead, so null is returned to signal "skip this project".
+     *   page instead, so self::SCOPE_SHADOWED is returned to signal "skip
+     *   this project, for that specific reason". Returns null if the
+     *   category doesn't exist as a system category at all.
      *
-     * Returns null when there is nothing to resolve against (unknown
-     * category, or a system-scope project that shadows it).
+     * @return array<string,string>|self::SCOPE_SHADOWED|null
      */
     private function resolveCodeMapForScope($category, $scopeProjectId, $rowProjectId)
     {
@@ -652,7 +680,7 @@ EOD;
 
         foreach ($this->getProjectCategories($rowProjectId) as $projectCategory) {
             if ($projectCategory['category'] === $category) {
-                return null;
+                return self::SCOPE_SHADOWED;
             }
         }
 
@@ -663,6 +691,35 @@ EOD;
         }
 
         return null;
+    }
+
+    /**
+     * Resolve one project's cache values against $category for the given
+     * refresh scope, returning only the ones that still resolve to a known
+     * code - shared by findStaleCacheEntries() (which then also compares
+     * against the cached label to decide staleness) and applyCacheRefresh()
+     * (which only needs "what should this be right now"), so the two can
+     * never independently drift on what "resolvable" means.
+     *
+     * @param list<string> $values
+     * @return array{codeMap: array<string,string>}|array{skippedReason: string}
+     */
+    private function resolvedLabelsForProject($category, $scopeProjectId, $rowProjectId, array $values)
+    {
+        $codeMap = $this->resolveCodeMapForScope($category, $scopeProjectId, $rowProjectId);
+        if ($codeMap === self::SCOPE_SHADOWED) {
+            return ['skippedReason' => 'project defines its own category with this name'];
+        }
+        if ($codeMap === null) {
+            return ['skippedReason' => 'category no longer exists'];
+        }
+        $resolved = [];
+        foreach ($values as $value) {
+            if (array_key_exists($value, $codeMap)) {
+                $resolved[$value] = $codeMap[$value];
+            }
+        }
+        return ['codeMap' => $resolved];
     }
 
     /**
@@ -706,25 +763,28 @@ EOD;
             $rowsByProject[$row['project_id']][] = $row;
         }
 
-        foreach ($rowsByProject as $rowProjectId => $projectRows) {
+        foreach ($rowsByProject as $projectRows) {
             // Use each row's own project_id (not the array-grouping key,
             // which PHP silently casts to int for a numeric-string key) so
             // the returned project_id always matches what the DB actually holds.
-            $codeMap = $this->resolveCodeMapForScope($category, $projectId, $rowProjectId);
-            if ($codeMap === null) {
-                if ($projectId === null) {
-                    $skippedProjects[] = [
-                        'project_id' => $projectRows[0]['project_id'],
-                        'reason' => 'project defines its own category with this name',
-                    ];
+            $rowProjectId = $projectRows[0]['project_id'];
+            $resolution = $this->resolvedLabelsForProject(
+                $category,
+                $projectId,
+                $rowProjectId,
+                array_column($projectRows, 'value')
+            );
+            if (isset($resolution['skippedReason'])) {
+                if ($projectId === null && $resolution['skippedReason'] !== 'category no longer exists') {
+                    $skippedProjects[] = ['project_id' => $rowProjectId, 'reason' => $resolution['skippedReason']];
                 }
                 continue;
             }
             foreach ($projectRows as $row) {
-                if (!array_key_exists($row['value'], $codeMap)) {
+                if (!array_key_exists($row['value'], $resolution['codeMap'])) {
                     continue;
                 }
-                $newLabel = $codeMap[$row['value']];
+                $newLabel = $resolution['codeMap'][$row['value']];
                 if ($newLabel !== $row['label']) {
                     $stale[] = [
                         'project_id' => $row['project_id'],
@@ -745,6 +805,11 @@ EOD;
      * $confirmedEntries, which may be an outdated preview snapshot), and only
      * entries that are still actually stale as of this call are written.
      *
+     * The category's pending-reminder flag is cleared only if nothing about
+     * it is stale anymore afterward - not merely because apply was called -
+     * so leaving some previewed rows unconfirmed keeps the reminder alive
+     * for what's still actually stale.
+     *
      * @param list<array{project_id: mixed, value: string}> $confirmedEntries
      * @return list<array{project_id: mixed, value: string, old_label: string, new_label: string}>
      */
@@ -757,17 +822,16 @@ EOD;
 
         $updated = [];
         foreach ($valuesByProject as $rowProjectId => $confirmedValues) {
-            $codeMap = $this->resolveCodeMapForScope($category, $projectId, $rowProjectId);
-            if ($codeMap === null) {
+            $resolution = $this->resolvedLabelsForProject($category, $projectId, $rowProjectId, $confirmedValues);
+            if (isset($resolution['skippedReason'])) {
                 // No longer resolvable against this scope as of right now
-                // (e.g. the project has since defined its own override) -
-                // skip rather than write a value the current scope can't justify.
+                // (e.g. the project has since defined its own override, or
+                // the category itself is gone) - skip rather than write a
+                // value the current scope can't justify.
                 continue;
             }
-            foreach ($this->getCachedEntries($category, $rowProjectId) as $row) {
-                if (!in_array($row['value'], $confirmedValues, true)) {
-                    continue;
-                }
+            $codeMap = $resolution['codeMap'];
+            foreach ($this->getCachedEntriesForValues($category, $rowProjectId, $confirmedValues) as $row) {
                 if (!array_key_exists($row['value'], $codeMap)) {
                     continue;
                 }
@@ -796,7 +860,10 @@ EOD;
             }
         }
 
-        $this->clearCacheRefreshPending($projectId, $category);
+        $stillStale = $this->findStaleCacheEntries($category, $projectId);
+        if (empty($stillStale['stale'])) {
+            $this->clearCacheRefreshPending($projectId, $category);
+        }
 
         return $updated;
     }
@@ -804,21 +871,36 @@ EOD;
     // --- Save-time "you may need to refresh the cache" reminder ---
 
     /**
-     * System categories, plus project categories only when there is an
-     * actual project to fetch them for. getProjectCategories() is a
-     * project-scoped settings lookup - the real framework throws ("The
-     * Project Id cannot be null!") if it's called with no project context
-     * at all, which a system-level (Control Center) settings save has none
-     * of. getSystemCategories() has no such restriction.
+     * Current category 'values' strings, keyed by category name and kept
+     * separate per scope ('system' vs 'project') - NOT merged into one
+     * list/map. A project may legitimately define a project-level category
+     * with the same name as a system category (the shadow-override this
+     * module explicitly supports elsewhere - see resolveCodeMapForScope()),
+     * and a single merged map keyed by bare name would let one silently
+     * clobber the other's snapshot value, corrupting the save-time-reminder
+     * diff for the *other* scope's otherwise-unchanged category.
+     *
+     * getProjectCategories() is a project-scoped settings lookup - the real
+     * framework throws ("The Project Id cannot be null!") if it's called
+     * with no project context at all, which a system-level (Control
+     * Center) settings save has none of - hence only fetching it when
+     * $projectId is truthy. getSystemCategories() has no such restriction.
+     *
+     * @return array{system: array<string,string>, project: array<string,string>}
      */
-    private function allCurrentCategories($projectId = null)
+    private function categoryValuesByScope($projectId = null)
     {
         $projectId = $projectId !== null ? $projectId : $this->getProjectId();
-        $categories = $this->getSystemCategories();
-        if ($projectId) {
-            $categories = array_merge($categories, $this->getProjectCategories($projectId));
+        $values = ['system' => [], 'project' => []];
+        foreach ($this->getSystemCategories() as $cat) {
+            $values['system'][$cat['category']] = $cat['values'];
         }
-        return $categories;
+        if ($projectId) {
+            foreach ($this->getProjectCategories($projectId) as $cat) {
+                $values['project'][$cat['category']] = $cat['values'];
+            }
+        }
+        return $values;
     }
 
     /**
@@ -841,18 +923,40 @@ EOD;
             return;
         }
 
-        $before = $this->categoriesBeforeSave ?? [];
+        // Only the scope actually being saved: a project-level save can
+        // only meaningfully flag/prune that project's own pending list (its
+        // refresh page only ever lists project categories), and symmetrically
+        // for a system-level save - see categoryValuesByScope()'s docblock
+        // for why system and project values must never be compared against
+        // each other's snapshot under a shared category-name key.
+        $scope = $project_id ? 'project' : 'system';
+        $before = ($this->categoriesBeforeSave ?? ['system' => [], 'project' => []])[$scope];
+        $now = $this->categoryValuesByScope($project_id)[$scope];
+
         $changed = [];
-        foreach ($this->allCurrentCategories($project_id) as $cat) {
-            $previousValues = $before[$cat['category']] ?? null;
-            if ($previousValues !== null && $previousValues !== $cat['values']) {
-                $changed[] = $cat['category'];
+        foreach ($now as $name => $values) {
+            $previousValues = $before[$name] ?? null;
+            if ($previousValues !== null && $previousValues !== $values) {
+                $changed[] = $name;
             }
         }
 
-        if (!empty($changed)) {
-            $pending = $this->getCacheRefreshPending($project_id);
-            $this->setCacheRefreshPending($project_id, array_merge($pending, $changed));
+        $pending = $this->getCacheRefreshPending($project_id);
+        // A pending category that no longer exists in this scope's current
+        // list (renamed/deleted before ever being refreshed) has nothing
+        // left to refresh and can never again pass categoryIsValidForScope()
+        // - drop it now rather than leaving a reminder that can never clear.
+        $updatedPending = array_values(array_unique(array_merge(
+            array_intersect($pending, array_keys($now)),
+            $changed
+        )));
+
+        $comparablePending = $pending;
+        sort($comparablePending);
+        $comparableUpdated = $updatedPending;
+        sort($comparableUpdated);
+        if ($comparableUpdated !== $comparablePending) {
+            $this->setCacheRefreshPending($project_id, $updatedPending);
         }
     }
 
@@ -909,6 +1013,55 @@ EOD;
         $this->setCacheRefreshPending($projectId, array_values(array_diff($pending, [$category])));
     }
 
+    /**
+     * The category-picker + preview/apply widget shared by both refresh
+     * pages - kept here rather than duplicated in each page file, so a
+     * future change to the markup/wiring can't land in one page and be
+     * forgotten in the other.
+     *
+     * @param "project"|"system" $scope
+     * @param list<array{category: string, name: string}> $categories
+     * @param list<string> $pending
+     */
+    public function renderCacheRefreshWidget($scope, array $categories, array $pending)
+    {
+        if (empty($categories)) {
+            return $scope === 'system'
+                ? "<p><em>No site-wide ontology categories are configured.</em></p>"
+                : "<p><em>No project-level ontology categories are configured for this project.</em></p>";
+        }
+
+        $options = '';
+        foreach ($categories as $cat) {
+            $isPending = in_array($cat['category'], $pending, true);
+            $options .= "<option value='" . \REDCap::escapeHtml($cat['category']) . "'" . ($isPending ? " selected" : "") . ">"
+                . \REDCap::escapeHtml($cat['name'])
+                . ($isPending ? " (values changed - refresh recommended)" : "")
+                . "</option>\n";
+        }
+
+        $scopeAttr = \REDCap::escapeHtml($scope);
+        $moduleObjectAttr = \REDCap::escapeHtml($this->getJavascriptModuleObjectName());
+
+        return <<<HTML
+<div id="cache_refresh_app" data-scope="{$scopeAttr}" data-module-object="{$moduleObjectAttr}">
+    <div>
+        <label for="cache_refresh_category">Category:</label>
+        <select id="cache_refresh_category">
+            <option value="">-- select a category --</option>
+            {$options}
+        </select>
+        <button type="button" id="cache_refresh_preview">Preview</button>
+    </div>
+
+    <div id="cache_refresh_status"></div>
+    <div id="cache_refresh_results"></div>
+
+    <button type="button" id="cache_refresh_apply" disabled>Apply Selected</button>
+</div>
+HTML;
+    }
+
     // --- Module page access and ajax wiring ---
 
     /**
@@ -936,14 +1089,14 @@ EOD;
     /**
      * Ajax requests don't route through redcap_module_link_check_display(),
      * so permission is re-checked here independently of whichever page the
-     * request came from.
+     * request came from - but by calling that same hook directly (rather
+     * than re-deriving an equivalent check) so the ajax gate and the page's
+     * own visibility gate can never silently diverge.
      */
     private function currentUserMayRefreshCache($project_id)
     {
-        if ($project_id) {
-            return ExternalModules::hasModuleConfigurationUserRights($this->PREFIX);
-        }
-        return $this->isSuperUser();
+        $linkKey = $project_id ? 'refresh-cache-project' : 'refresh-cache-admin';
+        return $this->redcap_module_link_check_display($project_id, ['key' => $linkKey]) !== null;
     }
 
     private function categoryIsValidForScope($category, $project_id)
