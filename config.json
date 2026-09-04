@@ -22,6 +22,12 @@
     "enable-every-page-hooks-on-system-pages": false,
     "system-settings" : [
         {
+            "key": "disable-cache-refresh",
+            "tt_name": "disable_cache_refresh",
+            "name": "Disable ontology cache refresh: uncheck (default) to keep the 'Refresh Ontology Cache' project page and the 'Simple Ontology: Refresh Cache' Control Center page available. Check this to remove both pages and stop the reminder shown when a category's values change.",
+            "type": "checkbox"
+        },
+        {
          "key": "site-category-list",
          "tt_name": "site_category_list",
          "name": "List of Ontologies for the site",

@@ -821,8 +821,26 @@ EOD;
         return $categories;
     }
 
+    /**
+     * The system-level kill switch for the entire cache-refresh mechanism
+     * (see design.md Decision 6). Phrased as an opt-out setting
+     * ('disable-cache-refresh') rather than an opt-in one, because
+     * config.json's 'default' attribute for settings is documented as
+     * unreliable, while an unchecked checkbox is REDCap's one dependable
+     * default - so "never set" and "explicitly unchecked" both correctly
+     * mean "enabled" here.
+     */
+    private function isCacheRefreshEnabled()
+    {
+        return !$this->getSystemSetting('disable-cache-refresh');
+    }
+
     public function redcap_module_save_configuration($project_id)
     {
+        if (!$this->isCacheRefreshEnabled()) {
+            return;
+        }
+
         $before = $this->categoriesBeforeSave ?? [];
         $changed = [];
         foreach ($this->allCurrentCategories($project_id) as $cat) {
@@ -840,6 +858,10 @@ EOD;
 
     public function redcap_module_configuration_settings($project_id, $settings)
     {
+        if (!$this->isCacheRefreshEnabled()) {
+            return $settings;
+        }
+
         $pending = $this->getCacheRefreshPending($project_id);
         if (!empty($pending)) {
             $refreshPageUrl = $project_id
@@ -900,7 +922,12 @@ EOD;
      */
     public function redcap_module_link_check_display($project_id, $link)
     {
-        if (($link['key'] ?? null) === 'refresh-cache-project') {
+        $linkKey = $link['key'] ?? null;
+        if (in_array($linkKey, ['refresh-cache-project', 'refresh-cache-admin'], true) && !$this->isCacheRefreshEnabled()) {
+            return null;
+        }
+
+        if ($linkKey === 'refresh-cache-project') {
             return ExternalModules::hasModuleConfigurationUserRights($this->PREFIX) ? $link : null;
         }
         return parent::redcap_module_link_check_display($project_id, $link);
@@ -935,6 +962,10 @@ EOD;
 
     public function redcap_module_ajax($action, $payload, $project_id)
     {
+        if (!$this->isCacheRefreshEnabled()) {
+            return ['error' => 'Ontology cache refresh has been disabled by the REDCap administrator.'];
+        }
+
         if (!$this->currentUserMayRefreshCache($project_id)) {
             return ['error' => 'You are not authorized to refresh the ontology cache.'];
         }

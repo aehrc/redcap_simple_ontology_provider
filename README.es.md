@@ -187,6 +187,12 @@ un aviso - tanto la próxima vez que abra el diálogo de configuración de este 
 preseleccionando esa categoría la próxima vez que abra la página de actualización correspondiente -
 para que no tenga que acordarse de revisarlo usted mismo.
 
+Un administrador de REDCap puede desactivar todo este mecanismo con la configuración de sistema
+**Disable ontology cache refresh** (Desactivar la actualización de la caché de ontologías). Al
+marcarla se eliminan ambos enlaces, se detiene el aviso al guardar y se rechazan las acciones
+subyacentes directamente. Está desmarcada por defecto, por lo que la funcionalidad está disponible
+salvo que un administrador decida explícitamente lo contrario.
+
 ## Proveedor de ontología
 
 Como parte de REDCap v8.8.1 se agregó un punto de extensión para permitir que los módulos externos puedan ofrecer servicios de ontologías (*'Ontology Provider'*). Funciona de manera similar al mecanismo del BioPortal de ontologías, pero permite cargar terminologías/vocabularios alternativos. La función principal de un Proveedor de ontologías es la de recibir un término de búsqueda y mostrar las coincidencias de código y descripción.

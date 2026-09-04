@@ -124,6 +124,21 @@ namespace ExternalModules {
         }
 
         /**
+         * Minimal stand-in for AbstractExternalModule's real default
+         * (super users always pass; a project link otherwise falls back to
+         * REDCap's general Project Design right, not modeled here since no
+         * test currently needs that path - only the super-user path, which
+         * is what this module's own override actually relies on falling
+         * back to for the control-center link). Real enough that
+         * `parent::redcap_module_link_check_display(...)` calls in the
+         * module under test don't fatal on an undefined method.
+         */
+        public function redcap_module_link_check_display($project_id, $link)
+        {
+            return ExternalModules::$isSuperUser ? $link : null;
+        }
+
+        /**
          * Fakes the two query shapes SimpleOntologyExternalModule actually
          * issues against redcap_web_service_cache - a select (with or
          * without a project_id filter) and a single-row label update. This

@@ -198,6 +198,11 @@ shows a reminder - both the next time you open this module's configuration dialo
 pre-selecting that category the next time you open the relevant refresh page - so you don't have to
 remember to check on your own.
 
+A REDCap admin can turn this whole mechanism off with the system setting **Disable ontology cache
+refresh**. Checking it removes both links, stops the save-time reminder, and rejects the underlying
+actions outright. It's unchecked by default, so the feature is available unless an admin
+specifically opts out.
+
 # Ontology Provider
 
 As part of release 8.8.1 of REDCap an extension point was added to allow external modules to become an 

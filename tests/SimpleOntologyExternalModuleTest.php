@@ -644,4 +644,92 @@ final class SimpleOntologyExternalModuleTest extends TestCase
 
         $this->assertSame($original, $settings);
     }
+
+    // --- System-level enable/disable (disable-cache-refresh) ---
+    // A checkbox's one dependable default state is unchecked, and
+    // config.json's own 'default' attribute for settings is documented as
+    // unreliable - so the setting is phrased as an opt-out
+    // ('disable-cache-refresh') specifically so "never set" means enabled.
+
+    public function testCacheRefreshEnabledByDefaultWhenSettingNeverSet(): void
+    {
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+
+        $response = $this->module->redcap_module_ajax('preview-cache-refresh', ['category' => 'test-cat'], null);
+
+        $this->assertArrayNotHasKey('error', $response);
+    }
+
+    public function testLinkCheckDisplayHidesBothLinksWhenCacheRefreshDisabled(): void
+    {
+        $this->module->systemSettings['disable-cache-refresh'] = true;
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+        \ExternalModules\ExternalModules::$moduleConfigurationUserRights = ['simple_ontology_provider' => true];
+
+        $this->assertNull($this->module->redcap_module_link_check_display('42', ['key' => 'refresh-cache-project']));
+        $this->assertNull($this->module->redcap_module_link_check_display(null, ['key' => 'refresh-cache-admin']));
+    }
+
+    public function testLinkCheckDisplayShowsBothLinksWhenCacheRefreshEnabled(): void
+    {
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+        \ExternalModules\ExternalModules::$moduleConfigurationUserRights = ['simple_ontology_provider' => true];
+
+        $projectLink = ['key' => 'refresh-cache-project'];
+        $adminLink = ['key' => 'refresh-cache-admin'];
+
+        $this->assertSame($projectLink, $this->module->redcap_module_link_check_display('42', $projectLink));
+        $this->assertSame($adminLink, $this->module->redcap_module_link_check_display(null, $adminLink));
+    }
+
+    public function testRedcapModuleAjaxRejectsBothActionsWhenCacheRefreshDisabled(): void
+    {
+        $this->module->systemSettings['disable-cache-refresh'] = true;
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old Display One'),
+        ];
+
+        $previewResponse = $this->module->redcap_module_ajax('preview-cache-refresh', ['category' => 'test-cat'], '42');
+        $applyResponse = $this->module->redcap_module_ajax('apply-cache-refresh', [
+            'category' => 'test-cat',
+            'entries' => [['project_id' => '42', 'value' => 'C1']],
+        ], '42');
+
+        $this->assertArrayHasKey('error', $previewResponse);
+        $this->assertArrayHasKey('error', $applyResponse);
+        // Confirms the reject happens before any cache mutation, not just before a permission grant.
+        $this->assertSame('Old Display One', \ExternalModules\AbstractExternalModule::$webServiceCache[0]['label']);
+    }
+
+    public function testSaveConfigurationDoesNotFlagCategoryWhenCacheRefreshDisabled(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        $this->module->validateSettings($this->settingsPayload([], [
+            'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
+            'values-type' => ['bar'], 'values' => ["C1|Display One\nC2|Display Two"],
+        ]));
+
+        $this->module->systemSettings['disable-cache-refresh'] = true;
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory([
+            'project-values' => "C1|Display One Updated\nC2|Display Two",
+        ])];
+
+        $this->module->redcap_module_save_configuration('42');
+
+        $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+    }
+
+    public function testConfigurationSettingsDoesNotInjectBannerWhenCacheRefreshDisabledEvenWithPendingFlag(): void
+    {
+        $this->module->systemSettings['disable-cache-refresh'] = true;
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+        $original = [['key' => 'project-category-list', 'name' => 'List of Ontologies for the project']];
+
+        $settings = $this->module->redcap_module_configuration_settings('42', $original);
+
+        $this->assertSame($original, $settings);
+    }
 }
