@@ -2,6 +2,11 @@
 
 For a terser, automatically generated commit-by-commit version record, see [CHANGELOG.md](./CHANGELOG.md).
 
+## Requirements
+
+- PHP 8.0.0 or later
+- REDCap 8.8.1 or later, on External Module framework version 16 or later
+
 This redcap external module allows the definition of a custom set of 'ontologies' which can be used to provide
 autocomplete functionality for a text field. Ontologies can be defined at a site or project level, and a default value
 can be specified to be returned if no match is found. Since version 0.4, an option has been added to select to swap
