@@ -133,7 +133,7 @@ For `json` values, the value is added using an `active` attribue.
 This is the equivalent in json format. If active is missing or set to something else then the entry will be considered 
 active.
 
-![SimpleOntology Settings](SimpleOntologySettings_v0.4.png)
+![SimpleOntology Settings](SimpleOntologySettings_v0.5.png)
 
 ## Word based searching
 The autocomplete implemented by the module will do a simple text search of the display text for the entered text.
