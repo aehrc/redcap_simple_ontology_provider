@@ -117,7 +117,7 @@ Para valores json, el valor se adiciona a través del atributo activo.
 Este es el equivalente en formato json. Si el atributo active no está presente o su valor es diferente a false la 
 entrada se considerará activa.
 
-![SimpleOntology Settings](SimpleOntologySettings_v0.4.es.png)
+![SimpleOntology Settings](SimpleOntologySettings.es.png)
 
 ## Búsqueda basada en palabras
 La funcionalidad de autocompletar implementada por el módulo siempre hará una búsqueda de texto simple en el texto de despliegue para el texto ingresado. En la versión 0.3, un mecanismo basado en palabras fue implementado, pero en la versión 0.4 una nueva opción ha sido agregada para seleccionar entre búsqueda por palabras y búsqueda por el texto completo.
@@ -149,8 +149,8 @@ Tanto la búsqueda basada en palabras como la de texto completo requieren que el
 realmente en algún lugar del texto de despliegue o los sinónimos de una entrada - lo cual tiene sentido para una
 lista grande, pero hace difícil navegar una lista corta y completamente enumerada (por ejemplo, una escala de
 frecuencia con valores como "Nunca", "Rara vez", "Semanalmente"), ya que el usuario debe conocer de antemano la
-redacción exacta de un valor para poder encontrarlo. Al marcar **Return all values regardless of search text**
-(Devolver todos los valores sin importar el texto de búsqueda) en una categoría se elimina ese requisito: cada
+redacción exacta de un valor para poder encontrarlo. Al marcar **Return all values** (Devolver todos los valores)
+en una categoría se elimina ese requisito: cada
 entrada activa y no oculta siempre se incluye en los resultados de esa categoría (hasta el límite de resultados
 del campo), y las entradas que sí coinciden con el texto ingresado se siguen ordenando primero - solo cambia su
 orden relativo, no se agrega ni se quita nada de lo que una búsqueda normal ya habría mostrado.

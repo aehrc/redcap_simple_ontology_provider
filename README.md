@@ -133,7 +133,7 @@ For `json` values, the value is added using an `active` attribue.
 This is the equivalent in json format. If active is missing or set to something else then the entry will be considered 
 active.
 
-![SimpleOntology Settings](SimpleOntologySettings_v0.5.png)
+![SimpleOntology Settings](SimpleOntologySettings.png)
 
 ## Word based searching
 The autocomplete implemented by the module will do a simple text search of the display text for the entered text.
@@ -166,7 +166,7 @@ If multiple entries have the same code, then the last entry will overwrite any e
 Both word-based and full-match search require the typed text to actually appear somewhere in an entry's display
 text or synonyms - which makes sense for a large list, but makes a short, fully-enumerated one (e.g. a frequency
 scale with values like "Never", "Rarely", "Weekly") hard to browse, since a user has to already know a value's
-exact wording to find it at all. Checking **Return all values regardless of search text** on a category removes
+exact wording to find it at all. Checking **Return all values** on a category removes
 that requirement: every active, non-hidden entry is always included in that category's results (up to the field's
 result limit), with entries that do match the typed text still sorted to the top - only their relative order
 changes, nothing is added or removed from what a normal search would have shown you first.

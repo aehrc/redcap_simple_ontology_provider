@@ -63,13 +63,13 @@
            {
 				"key": "site-return-all",
                 "tt_name": "site_return_all",
-				"name": "Return all values regardless of search text (browse a short list without needing to guess its exact wording)",
+				"name": "Return all values",
 				"type": "checkbox"
 			},
 			{
 				"key": "site-return-all-info",
 				"tt_name": "site_return_all_info",
-				"name": "The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
+				"name": "Browse a short, fully-enumerated category without needing to guess its exact search wording. The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
 				"type": "descriptive"
 			},
            {
@@ -149,13 +149,13 @@
             {
 				"key" : "project-return-all",
                 "tt_name" : "project_return_all",
-				"name" : "Return all values regardless of search text (browse a short list without needing to guess its exact wording)",
+				"name" : "Return all values",
 				"type" : "checkbox"
 			},
 			{
 				"key" : "project-return-all-info",
 				"tt_name" : "project_return_all_info",
-				"name" : "The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
+				"name" : "Browse a short, fully-enumerated category without needing to guess its exact search wording. The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
 				"type" : "descriptive"
 			},
             {
