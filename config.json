@@ -66,6 +66,12 @@
 				"name": "Return all values regardless of search text (browse a short list without needing to guess its exact wording)",
 				"type": "checkbox"
 			},
+			{
+				"key": "site-return-all-info",
+				"tt_name": "site_return_all_info",
+				"name": "When checked, this category always has a value to show (as long as at least one active, non-hidden value is configured), so the Return No Results Found setting below will never actually trigger.",
+				"type": "descriptive"
+			},
            {
 				"key": "site-return-no-result",
                 "tt_name": "site_return_no_result",
@@ -145,6 +151,12 @@
                 "tt_name" : "project_return_all",
 				"name" : "Return all values regardless of search text (browse a short list without needing to guess its exact wording)",
 				"type" : "checkbox"
+			},
+			{
+				"key" : "project-return-all-info",
+				"tt_name" : "project_return_all_info",
+				"name" : "When checked, this category always has a value to show (as long as at least one active, non-hidden value is configured), so the Return No Results Found setting below will never actually trigger.",
+				"type" : "descriptive"
 			},
             {
 				"key" : "project-return-no-result",
