@@ -209,6 +209,17 @@ supported and can be freely mixed on the same field:
 @SIMPLE-ONTOLOGY-HIDECHOICE='code1,code2'
 ```
 
+**Piping is not supported, and not currently possible, in either tag's argument** (e.g.
+`@HIDECHOICE='[other_field]'` to hide a code chosen by another field's answer). REDCap core's own built-in
+`@HIDECHOICE` resolves piping in its argument via `Piping::replaceVariablesInLabel($text, $record, $event_id,
+$instance, ...)`, which needs to know which record is currently being edited. This module's field-level tags are
+read from inside `DataEntry/web_service_auto_suggest.php` - the same real endpoint every search on this field hits
+- and that endpoint's request never carries a record, event, or instance identifier at all; REDCap core's own
+front-end JS only ever sends `term`, `field`, and `pid` to it. There is no record context available to pipe
+against from here, regardless of how this module parses the tag, so this isn't a missing feature so much as a
+limitation of the integration point itself - it would only become possible if a future REDCap version started
+including record context in that request.
+
 ## Refreshing the cache
 
 REDCap caches the display text for each code the first time a project uses it, and reads from that

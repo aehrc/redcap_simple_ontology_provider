@@ -198,6 +198,18 @@ libremente en el mismo campo:
 @SIMPLE-ONTOLOGY-HIDECHOICE='code1,code2'
 ```
 
+**El uso de "piping" no es compatible, y actualmente no es posible, en el argumento de ninguna de las dos
+etiquetas** (por ejemplo, `@HIDECHOICE='[otro_campo]'` para ocultar un código elegido según la respuesta de otro
+campo). La propia etiqueta `@HIDECHOICE` integrada de REDCap resuelve el piping en su argumento mediante
+`Piping::replaceVariablesInLabel($texto, $record, $event_id, $instance, ...)`, que necesita saber qué registro se
+está editando en ese momento. Las etiquetas de este módulo se leen dentro de
+`DataEntry/web_service_auto_suggest.php` - el mismo endpoint real al que llega cada búsqueda de este campo - y la
+solicitud de ese endpoint nunca incluye un identificador de registro, evento o instancia; el propio JavaScript de
+REDCap solo le envía `term`, `field` y `pid`. No hay ningún contexto de registro disponible para resolver el
+piping desde aquí, sin importar cómo este módulo interprete la etiqueta, por lo que esto no es una funcionalidad
+pendiente sino una limitación del propio punto de integración - solo sería posible si una futura versión de
+REDCap comenzara a incluir el contexto del registro en esa solicitud.
+
 ## Actualizar la caché
 
 REDCap guarda en caché el texto de visualización de cada código la primera vez que un proyecto lo
