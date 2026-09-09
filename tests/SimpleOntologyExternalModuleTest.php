@@ -11,7 +11,15 @@ final class SimpleOntologyExternalModuleTest extends TestCase
     protected function setUp(): void
     {
         \OntologyManager::resetForTests();
+        \ExternalModules\ExternalModules::resetForTests();
         $this->module = new SimpleOntologyExternalModule();
+        // Every normal field-rendering/search/settings-save entry point this
+        // module exposes runs inside an actual project (a field can't exist
+        // outside one) - default the fake's ambient project context to
+        // reflect that. Tests exercising the one exception - a system-level
+        // (Control Center) settings save, which has no project context at
+        // all - override this back to null/empty explicitly.
+        $this->module->currentProjectId = '1';
         \REDCap::$getDataDictionaryCallCount = 0;
         unset($_GET['field'], $_GET['pid']);
         $GLOBALS['Proj'] = null;
@@ -288,5 +296,573 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $html = $this->module->getOnlineDesignerSection();
 
         $this->assertStringContainsString("<option value='cat1'>Category One</option>", $html);
+    }
+
+    // --- findStaleCacheEntries() / applyCacheRefresh() ---
+    // aehrc/redcap_simple_ontology_provider#10: redcap_web_service_cache is
+    // never updated when a category's values change, so existing records
+    // keep showing the old display. These cover the diff/apply logic that
+    // lets a project or control-center page correct it - see
+    // openspec/changes/simple-ontology-cache-refresh/design.md.
+
+    /** Raw project-category-list sub-setting row, matching the real config.json keys. */
+    private function projectCategory(array $overrides = []): array
+    {
+        return array_merge([
+            'project-category' => 'test-cat',
+            'project-name' => 'Test Category',
+            'project-search-type' => 'word',
+            'project-return-no-result' => false,
+            'project-no-result-label' => '',
+            'project-no-result-code' => '',
+            'project-values-type' => 'bar',
+            'project-values' => "C1|Display One\nC2|Display Two",
+        ], $overrides);
+    }
+
+    private function cacheRow($projectId, $category, $value, $label, $service = 'SIMPLE'): array
+    {
+        return ['project_id' => $projectId, 'service' => $service, 'category' => $category, 'value' => $value, 'label' => $label];
+    }
+
+    public function testFindStaleCacheEntriesProjectScopeOnlyDiffsRowsForGivenProject(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old Display One'),
+            $this->cacheRow('99', 'test-cat', 'C1', 'Some Other Projects Old Label'),
+        ];
+
+        $result = $this->module->findStaleCacheEntries('test-cat', '42');
+
+        $this->assertCount(1, $result['stale']);
+        $this->assertSame('42', $result['stale'][0]['project_id']);
+        $this->assertSame('C1', $result['stale'][0]['value']);
+        $this->assertSame('Old Display One', $result['stale'][0]['old_label']);
+        $this->assertSame('Display One', $result['stale'][0]['new_label']);
+        $this->assertSame([], $result['skippedProjects']);
+    }
+
+    public function testFindStaleCacheEntriesSystemScopeSkipsProjectThatOverridesCategory(): void
+    {
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-category' => 'shared-cat',
+            'site-values' => "C1|System Display One",
+        ])];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('1', 'shared-cat', 'C1', 'Old System Label'),
+            $this->cacheRow('2', 'shared-cat', 'C1', 'Old Overridden Label'),
+        ];
+
+        // Project 2 has defined its own project-level category with the same name.
+        $this->setProjectSubSettingsFor('2', 'project-category-list', [$this->projectCategory([
+            'project-category' => 'shared-cat',
+            'project-values' => "C1|Project Overridden Display",
+        ])]);
+
+        $result = $this->module->findStaleCacheEntries('shared-cat', null);
+
+        $this->assertCount(1, $result['stale']);
+        $this->assertSame('1', $result['stale'][0]['project_id']);
+        $this->assertSame('System Display One', $result['stale'][0]['new_label']);
+
+        $this->assertCount(1, $result['skippedProjects']);
+        $this->assertSame('2', $result['skippedProjects'][0]['project_id']);
+    }
+
+    public function testFindStaleCacheEntriesExcludesCodeNoLongerInCategoryDefinition(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory([
+            'project-values' => "C1|Display One",
+        ])];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old Display One'),
+            $this->cacheRow('42', 'test-cat', 'removed-code', 'Whatever It Used To Say'),
+        ];
+
+        $result = $this->module->findStaleCacheEntries('test-cat', '42');
+
+        $this->assertCount(1, $result['stale']);
+        $this->assertSame('C1', $result['stale'][0]['value']);
+    }
+
+    public function testFindStaleCacheEntriesExcludesEntryWhoseLabelAlreadyMatches(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Display One'),
+        ];
+
+        $result = $this->module->findStaleCacheEntries('test-cat', '42');
+
+        $this->assertSame([], $result['stale']);
+    }
+
+    public function testApplyCacheRefreshUpdatesCacheAndReturnsWhatChanged(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old Display One'),
+        ];
+
+        $updated = $this->module->applyCacheRefresh('test-cat', '42', [
+            ['project_id' => '42', 'value' => 'C1'],
+        ]);
+
+        $this->assertCount(1, $updated);
+        $this->assertSame('Display One', $updated[0]['new_label']);
+        $this->assertSame('Display One', \ExternalModules\AbstractExternalModule::$webServiceCache[0]['label']);
+    }
+
+    public function testApplyCacheRefreshReDerivesLabelAtApplyTimeRatherThanTrustingCallerSnapshot(): void
+    {
+        // The category changes again between "preview" and "apply" - apply
+        // must write what's true now, not whatever the (now stale) preview said.
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory([
+            'project-values' => "C1|Brand New Display",
+        ])];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old Display One'),
+        ];
+
+        // Caller passes a stale/fabricated old_label/new_label - applyCacheRefresh must ignore them.
+        $updated = $this->module->applyCacheRefresh('test-cat', '42', [
+            ['project_id' => '42', 'value' => 'C1', 'old_label' => 'Old Display One', 'new_label' => 'A Value The Caller Made Up'],
+        ]);
+
+        $this->assertSame('Brand New Display', $updated[0]['new_label']);
+        $this->assertSame('Brand New Display', \ExternalModules\AbstractExternalModule::$webServiceCache[0]['label']);
+    }
+
+    public function testApplyCacheRefreshDoesNotUpdateEntryNoLongerStale(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Display One'),
+        ];
+
+        $updated = $this->module->applyCacheRefresh('test-cat', '42', [
+            ['project_id' => '42', 'value' => 'C1'],
+        ]);
+
+        $this->assertSame([], $updated);
+    }
+
+    public function testApplyCacheRefreshLogsEachUpdatedRow(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old Display One'),
+        ];
+
+        $this->module->applyCacheRefresh('test-cat', '42', [
+            ['project_id' => '42', 'value' => 'C1'],
+        ]);
+
+        $this->assertCount(1, \ExternalModules\AbstractExternalModule::$logEntries);
+        $logged = \ExternalModules\AbstractExternalModule::$logEntries[0];
+        $this->assertSame('test-cat', $logged['category']);
+        $this->assertSame('C1', $logged['value']);
+        $this->assertSame('Old Display One', $logged['old_label']);
+        $this->assertSame('Display One', $logged['new_label']);
+        $this->assertSame('42', $logged['project_id']);
+    }
+
+    // --- redcap_module_ajax() authorization ---
+
+    public function testRedcapModuleAjaxRejectsControlCenterActionForNonSuperUser(): void
+    {
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+        \ExternalModules\ExternalModules::$isSuperUser = false;
+
+        $response = $this->module->redcap_module_ajax('preview-cache-refresh', ['category' => 'test-cat'], null);
+
+        $this->assertArrayHasKey('error', $response);
+    }
+
+    public function testRedcapModuleAjaxAllowsControlCenterActionForSuperUser(): void
+    {
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+
+        $response = $this->module->redcap_module_ajax('preview-cache-refresh', ['category' => 'test-cat'], null);
+
+        $this->assertArrayNotHasKey('error', $response);
+    }
+
+    public function testRedcapModuleAjaxRejectsProjectActionForUserWithoutModuleConfigurationRights(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\ExternalModules::$moduleConfigurationUserRights = [];
+
+        $response = $this->module->redcap_module_ajax('preview-cache-refresh', ['category' => 'test-cat'], '42');
+
+        $this->assertArrayHasKey('error', $response);
+    }
+
+    public function testRedcapModuleAjaxAllowsProjectActionForUserWithModuleConfigurationRights(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\ExternalModules::$moduleConfigurationUserRights = ['simple_ontology_provider' => true];
+
+        $response = $this->module->redcap_module_ajax('preview-cache-refresh', ['category' => 'test-cat'], '42');
+
+        $this->assertArrayNotHasKey('error', $response);
+    }
+
+    /** Loads a project-scoped sub-setting for a specific project id, independent of the current-context subSettings array. */
+    private function setProjectSubSettingsFor($projectId, $key, array $rows): void
+    {
+        $this->module->projectSubSettingsByProject[$projectId][$key] = $rows;
+    }
+
+    // --- Save-time "you may need to refresh the cache" reminder ---
+    // Regression coverage for a real bug hit while manually testing: saving
+    // module settings from the Control Center (a system-level save, with no
+    // project context at all) threw "The Project Id cannot be null!" from
+    // deep inside the framework, because validateSettings()'s snapshot
+    // unconditionally called getProjectCategories() - a project-scoped
+    // settings lookup the real framework refuses to make with no project id
+    // available. getSystemCategories() has no such restriction.
+
+    /**
+     * A full validateSettings() payload with every key the real save-settings
+     * form always submits (per config.json), covering only $siteValues/
+     * $projectValues as single-category lists for simplicity - callers pass
+     * [] for whichever side has no categories.
+     */
+    private function settingsPayload(array $siteValues = [], array $projectValues = []): array
+    {
+        $blank = ['category' => [], 'name' => [], 'search-type' => [], 'return-no-result' => [],
+            'no-result-label' => [], 'no-result-code' => [], 'values-type' => [], 'values' => []];
+        $fill = function (array $overrides) use ($blank) {
+            return array_merge($blank, $overrides);
+        };
+        $site = $fill($siteValues);
+        $project = $fill($projectValues);
+        return [
+            'site-category' => $site['category'], 'site-name' => $site['name'],
+            'site-search-type' => $site['search-type'], 'site-return-no-result' => $site['return-no-result'],
+            'site-no-result-label' => $site['no-result-label'], 'site-no-result-code' => $site['no-result-code'],
+            'site-values-type' => $site['values-type'], 'site-values' => $site['values'],
+            'project-category' => $project['category'], 'project-name' => $project['name'],
+            'project-search-type' => $project['search-type'], 'project-return-no-result' => $project['return-no-result'],
+            'project-no-result-label' => $project['no-result-label'], 'project-no-result-code' => $project['no-result-code'],
+            'project-values-type' => $project['values-type'], 'project-values' => $project['values'],
+        ];
+    }
+
+    public function testValidateSettingsDoesNotThrowWhenSavedFromControlCenterWithNoProjectContext(): void
+    {
+        $this->module->currentProjectId = null;
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+
+        $errors = $this->module->validateSettings($this->settingsPayload([
+            'category' => ['test-cat'], 'name' => ['Test Category'],
+            'return-no-result' => [false], 'values-type' => ['bar'], 'values' => ["C1|Display One"],
+        ]));
+
+        $this->assertSame('', $errors);
+    }
+
+    public function testRedcapModuleSaveConfigurationDoesNotThrowForSystemLevelSaveWithNoProjectContext(): void
+    {
+        $this->module->currentProjectId = null;
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+        $this->module->validateSettings($this->settingsPayload([
+            'category' => ['test-cat'], 'name' => ['Test Category'],
+            'return-no-result' => [false], 'values-type' => ['bar'], 'values' => ["C1|Display One"],
+        ]));
+
+        // Simulate the value actually changing before redcap_module_save_configuration() runs.
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory(['site-values' => "C1|Changed Display"])];
+
+        $this->module->redcap_module_save_configuration('');
+
+        $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending(null));
+    }
+
+    public function testSaveConfigurationFlagsCategoryWhoseValuesChanged(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        $this->module->validateSettings($this->settingsPayload([], [
+            'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
+            'values-type' => ['bar'], 'values' => ["C1|Display One\nC2|Display Two"],
+        ]));
+
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory([
+            'project-values' => "C1|Display One Updated\nC2|Display Two",
+        ])];
+
+        $this->module->redcap_module_save_configuration('42');
+
+        $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending('42'));
+    }
+
+    public function testSaveConfigurationDoesNotFlagCategoryWhenValuesUnchanged(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        $this->module->validateSettings($this->settingsPayload([], [
+            'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
+            'values-type' => ['bar'], 'values' => ["C1|Display One\nC2|Display Two"],
+        ]));
+
+        // No change to subSettings before the save-configuration hook runs.
+        $this->module->redcap_module_save_configuration('42');
+
+        $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+    }
+
+    public function testApplyCacheRefreshClearsPendingReminderForCategory(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat', 'other-cat']));
+
+        $this->module->applyCacheRefresh('test-cat', '42', []);
+
+        $this->assertSame(['other-cat'], $this->module->getCacheRefreshPending('42'));
+    }
+
+    public function testConfigurationSettingsInjectsReminderWhenCategoryPending(): void
+    {
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+
+        $settings = $this->module->redcap_module_configuration_settings('42', [
+            ['key' => 'project-category-list', 'name' => 'List of Ontologies for the project'],
+        ]);
+
+        $this->assertSame('descriptive', $settings[0]['type']);
+        $this->assertStringContainsString('test-cat', $settings[0]['name']);
+        $this->assertSame('project-category-list', $settings[1]['key']);
+    }
+
+    public function testConfigurationSettingsUnchangedWhenNothingPending(): void
+    {
+        $original = [['key' => 'project-category-list', 'name' => 'List of Ontologies for the project']];
+
+        $settings = $this->module->redcap_module_configuration_settings('42', $original);
+
+        $this->assertSame($original, $settings);
+    }
+
+    // --- System-level enable/disable (disable-cache-refresh) ---
+    // A checkbox's one dependable default state is unchecked, and
+    // config.json's own 'default' attribute for settings is documented as
+    // unreliable - so the setting is phrased as an opt-out
+    // ('disable-cache-refresh') specifically so "never set" means enabled.
+
+    public function testCacheRefreshEnabledByDefaultWhenSettingNeverSet(): void
+    {
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+
+        $response = $this->module->redcap_module_ajax('preview-cache-refresh', ['category' => 'test-cat'], null);
+
+        $this->assertArrayNotHasKey('error', $response);
+    }
+
+    public function testLinkCheckDisplayHidesBothLinksWhenCacheRefreshDisabled(): void
+    {
+        $this->module->systemSettings['disable-cache-refresh'] = true;
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+        \ExternalModules\ExternalModules::$moduleConfigurationUserRights = ['simple_ontology_provider' => true];
+
+        $this->assertNull($this->module->redcap_module_link_check_display('42', ['key' => 'refresh-cache-project']));
+        $this->assertNull($this->module->redcap_module_link_check_display(null, ['key' => 'refresh-cache-admin']));
+    }
+
+    public function testLinkCheckDisplayShowsBothLinksWhenCacheRefreshEnabled(): void
+    {
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+        \ExternalModules\ExternalModules::$moduleConfigurationUserRights = ['simple_ontology_provider' => true];
+
+        $projectLink = ['key' => 'refresh-cache-project'];
+        $adminLink = ['key' => 'refresh-cache-admin'];
+
+        $this->assertSame($projectLink, $this->module->redcap_module_link_check_display('42', $projectLink));
+        $this->assertSame($adminLink, $this->module->redcap_module_link_check_display(null, $adminLink));
+    }
+
+    public function testRedcapModuleAjaxRejectsBothActionsWhenCacheRefreshDisabled(): void
+    {
+        $this->module->systemSettings['disable-cache-refresh'] = true;
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\ExternalModules::$isSuperUser = true;
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old Display One'),
+        ];
+
+        $previewResponse = $this->module->redcap_module_ajax('preview-cache-refresh', ['category' => 'test-cat'], '42');
+        $applyResponse = $this->module->redcap_module_ajax('apply-cache-refresh', [
+            'category' => 'test-cat',
+            'entries' => [['project_id' => '42', 'value' => 'C1']],
+        ], '42');
+
+        $this->assertArrayHasKey('error', $previewResponse);
+        $this->assertArrayHasKey('error', $applyResponse);
+        // Confirms the reject happens before any cache mutation, not just before a permission grant.
+        $this->assertSame('Old Display One', \ExternalModules\AbstractExternalModule::$webServiceCache[0]['label']);
+    }
+
+    public function testSaveConfigurationDoesNotFlagCategoryWhenCacheRefreshDisabled(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        $this->module->validateSettings($this->settingsPayload([], [
+            'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
+            'values-type' => ['bar'], 'values' => ["C1|Display One\nC2|Display Two"],
+        ]));
+
+        $this->module->systemSettings['disable-cache-refresh'] = true;
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory([
+            'project-values' => "C1|Display One Updated\nC2|Display Two",
+        ])];
+
+        $this->module->redcap_module_save_configuration('42');
+
+        $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+    }
+
+    public function testConfigurationSettingsDoesNotInjectBannerWhenCacheRefreshDisabledEvenWithPendingFlag(): void
+    {
+        $this->module->systemSettings['disable-cache-refresh'] = true;
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+        $original = [['key' => 'project-category-list', 'name' => 'List of Ontologies for the project']];
+
+        $settings = $this->module->redcap_module_configuration_settings('42', $original);
+
+        $this->assertSame($original, $settings);
+    }
+
+    // --- Adversarial-review fixes ---
+
+    public function testSaveConfigurationDoesNotSpuriouslyFlagSystemCategoryWhenProjectSharesItsName(): void
+    {
+        // Regression coverage: categoriesBeforeSave used to be keyed only by
+        // bare category name across a merged system+project list, so a
+        // project shadowing a system category of the same name (the exact
+        // override scenario this module supports elsewhere) collided under
+        // one map key - the project's old value silently became the
+        // baseline the *system* category's current value got compared
+        // against too, spuriously flagging it as changed on every save.
+        $this->module->currentProjectId = '42';
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-category' => 'shared', 'site-values' => 'sys-old',
+        ])];
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory([
+            'project-category' => 'shared', 'project-values' => 'proj-old',
+        ])];
+
+        $this->module->validateSettings($this->settingsPayload(
+            ['category' => ['shared'], 'name' => ['Shared'], 'return-no-result' => [false], 'values-type' => ['bar'], 'values' => ['sys-old']],
+            ['category' => ['shared'], 'name' => ['Shared'], 'return-no-result' => [false], 'values-type' => ['bar'], 'values' => ['proj-old']]
+        ));
+
+        // Nothing actually changes before redcap_module_save_configuration() runs.
+        $this->module->redcap_module_save_configuration('42');
+
+        $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+        $this->assertSame([], $this->module->getCacheRefreshPending(null));
+    }
+
+    public function testSaveConfigurationPrunesPendingCategoryThatNoLongerExists(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat', 'renamed-away']));
+
+        $this->module->validateSettings($this->settingsPayload([], [
+            'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
+            'values-type' => ['bar'], 'values' => ["C1|Display One\nC2|Display Two"],
+        ]));
+        // 'test-cat' is unchanged; 'renamed-away' no longer exists at all.
+
+        $this->module->redcap_module_save_configuration('42');
+
+        $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending('42'));
+    }
+
+    public function testApplyCacheRefreshKeepsPendingFlagWhenSomeStaleEntriesNotConfirmed(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory([
+            'project-values' => "C1|Display One\nC2|Display Two",
+        ])];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old One'),
+            $this->cacheRow('42', 'test-cat', 'C2', 'Old Two'),
+        ];
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+
+        // Only C1 confirmed; C2 is still genuinely stale.
+        $this->module->applyCacheRefresh('test-cat', '42', [
+            ['project_id' => '42', 'value' => 'C1'],
+        ]);
+
+        $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending('42'));
+    }
+
+    public function testApplyCacheRefreshClearsPendingFlagWhenAllStaleEntriesConfirmed(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory([
+            'project-values' => "C1|Display One\nC2|Display Two",
+        ])];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old One'),
+            $this->cacheRow('42', 'test-cat', 'C2', 'Old Two'),
+        ];
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+
+        $this->module->applyCacheRefresh('test-cat', '42', [
+            ['project_id' => '42', 'value' => 'C1'],
+            ['project_id' => '42', 'value' => 'C2'],
+        ]);
+
+        $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+    }
+
+    public function testApplyCacheRefreshOnlyFetchesConfirmedValues(): void
+    {
+        // getCachedEntriesForValues() should be used at apply time rather
+        // than fetching a project's whole cached category and filtering
+        // client-side - an entry never confirmed and never stale-relevant
+        // must not be touched or need to be fetched to be left alone.
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        \ExternalModules\AbstractExternalModule::$webServiceCache = [
+            $this->cacheRow('42', 'test-cat', 'C1', 'Old Display One'),
+            $this->cacheRow('42', 'test-cat', 'C2', 'Display Two'),
+        ];
+
+        $updated = $this->module->applyCacheRefresh('test-cat', '42', [
+            ['project_id' => '42', 'value' => 'C1'],
+        ]);
+
+        $this->assertCount(1, $updated);
+        $this->assertSame('C1', $updated[0]['value']);
+        $this->assertSame('Display Two', \ExternalModules\AbstractExternalModule::$webServiceCache[1]['label']);
+    }
+
+    public function testRenderCacheRefreshWidgetListsCategoriesAndMarksPending(): void
+    {
+        $html = $this->module->renderCacheRefreshWidget('project', [
+            ['category' => 'cat1', 'name' => 'Category One'],
+            ['category' => 'cat2', 'name' => 'Category Two'],
+        ], ['cat2']);
+
+        $this->assertStringContainsString('data-scope="project"', $html);
+        $this->assertStringContainsString("<option value='cat1'>Category One</option>", $html);
+        $this->assertStringContainsString('values changed - refresh recommended', $html);
+        $this->assertStringContainsString("value='cat2' selected", $html);
+    }
+
+    public function testRenderCacheRefreshWidgetShowsEmptyStateForSystemScope(): void
+    {
+        $html = $this->module->renderCacheRefreshWidget('system', [], []);
+
+        $this->assertStringContainsString('No site-wide ontology categories are configured', $html);
+    }
+
+    public function testRenderCacheRefreshWidgetShowsEmptyStateForProjectScope(): void
+    {
+        $html = $this->module->renderCacheRefreshWidget('project', [], []);
+
+        $this->assertStringContainsString('No project-level ontology categories are configured', $html);
     }
 }

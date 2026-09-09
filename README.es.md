@@ -157,6 +157,42 @@ separada por comas. El módulo considera todas las entradas @HIDECHOICE encontra
 ```
 ![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
 
+## Actualizar la caché
+
+REDCap guarda en caché el texto de visualización de cada código la primera vez que un proyecto lo
+utiliza, y a partir de ese momento lee de esa caché en lugar de volver a consultar a este módulo.
+Esto significa que, después de editar los valores de una categoría, los registros existentes pueden
+seguir mostrando el texto *anterior* hasta que se corrija la caché - ver la
+[issue #10](https://github.com/aehrc/redcap_simple_ontology_provider/issues/10).
+
+Se proporcionan dos enlaces para solucionar esto, según dónde se defina la categoría:
+
+- **Refresh Ontology Cache** (una página de proyecto, dentro de la configuración de Módulos
+  Externos del proyecto) actualiza las entradas en caché de las categorías propias del proyecto.
+  Puede usarla cualquier persona que ya pueda configurar los ajustes de proyecto de este módulo.
+- **Simple Ontology: Refresh Cache** (una página del Centro de Control, solo para administradores
+  de REDCap) actualiza las entradas en caché de una categoría del sitio, en todos los proyectos que
+  alguna vez hayan guardado en caché un valor de esa categoría. Un proyecto que haya definido su
+  propia categoría a nivel de proyecto con el mismo nombre se omite aquí - use la página propia de
+  ese proyecto en su lugar, para que su caché se corrija con sus propios valores y no con los del
+  sitio.
+
+Ambas páginas funcionan igual: elija una categoría, revise las entradas cuya etiqueta en caché ya no
+coincide con lo que la categoría define actualmente (un código que ya no existe en la categoría se
+deja intacto, ya que no hay un valor correcto con el cual reemplazarlo), y luego aplique la
+corrección a las que confirme.
+
+Si guarda una categoría con valores distintos a los que tenía antes, el módulo lo recuerda y muestra
+un aviso - tanto la próxima vez que abra el diálogo de configuración de este módulo, como
+preseleccionando esa categoría la próxima vez que abra la página de actualización correspondiente -
+para que no tenga que acordarse de revisarlo usted mismo.
+
+Un administrador de REDCap puede desactivar todo este mecanismo con la configuración de sistema
+**Disable ontology cache refresh** (Desactivar la actualización de la caché de ontologías). Al
+marcarla se eliminan ambos enlaces, se detiene el aviso al guardar y se rechazan las acciones
+subyacentes directamente. Está desmarcada por defecto, por lo que la funcionalidad está disponible
+salvo que un administrador decida explícitamente lo contrario.
+
 ## Proveedor de ontología
 
 Como parte de REDCap v8.8.1 se agregó un punto de extensión para permitir que los módulos externos puedan ofrecer servicios de ontologías (*'Ontology Provider'*). Funciona de manera similar al mecanismo del BioPortal de ontologías, pero permite cargar terminologías/vocabularios alternativos. La función principal de un Proveedor de ontologías es la de recibir un término de búsqueda y mostrar las coincidencias de código y descripción.
