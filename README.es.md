@@ -230,10 +230,14 @@ Se proporcionan dos enlaces para solucionar esto, según dónde se defina la cat
   ese proyecto en su lugar, para que su caché se corrija con sus propios valores y no con los del
   sitio.
 
+![Enlace Refresh Ontology Cache en el panel de Módulos Externos del proyecto](SimpleOntologyCacheRefreshLink.png)
+
 Ambas páginas funcionan igual: elija una categoría, revise las entradas cuya etiqueta en caché ya no
 coincide con lo que la categoría define actualmente (un código que ya no existe en la categoría se
 deja intacto, ya que no hay un valor correcto con el cual reemplazarlo), y luego aplique la
 corrección a las que confirme.
+
+![Página Refresh Ontology Cache mostrando los cambios de etiqueta propuestos](SimpleOntologyCacheRefreshPreview.png)
 
 Si guarda una categoría con valores distintos a los que tenía antes, el módulo lo recuerda y muestra
 un aviso - tanto la próxima vez que abra el diálogo de configuración de este módulo, como

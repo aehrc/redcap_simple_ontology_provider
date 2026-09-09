@@ -238,10 +238,14 @@ Two links are provided to fix this, matching where a category is defined:
   that project's own page instead, so its cache is corrected with its own values rather than the
   site-wide ones.
 
+![Refresh Ontology Cache link in the project's External Modules panel](SimpleOntologyCacheRefreshLink.png)
+
 Both pages work the same way: pick a category, preview the entries whose cached label no longer
 matches what the category currently defines (a code that no longer exists in the category at all is
 left alone, since there is nothing correct to replace it with), then apply the correction to the
 ones you confirm.
+
+![Refresh Ontology Cache page previewing proposed label changes](SimpleOntologyCacheRefreshPreview.png)
 
 If you save a category with different values than it had before, the module remembers this and
 shows a reminder - both the next time you open this module's configuration dialog, and by
