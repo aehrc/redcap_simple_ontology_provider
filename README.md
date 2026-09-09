@@ -171,6 +171,12 @@ that requirement: every active, non-hidden entry is always included in that cate
 result limit), with entries that do match the typed text still sorted to the top - only their relative order
 changes, nothing is added or removed from what a normal search would have shown you first.
 
+**Interaction with `Return 'No Results Found'`:** that setting triggers whenever the result count is below the
+field's result limit, not only when there are none (see below) - for a short, fully-enumerated category, which is
+exactly what `Return all values` is for, this means its fallback value will typically appear alongside every
+search's real results, not just when nothing matches. Checking both settings on the same category is unlikely to
+do what you want.
+
 ## @HIDECHOICE support
 As part of the 0.5 release extra functionality has been added to this module for it to consider the `@HIDECHOICE`
 action tag. This action tag is available for choice fields to indicate a choice should not be shown. This

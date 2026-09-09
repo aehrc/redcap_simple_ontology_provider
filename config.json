@@ -69,7 +69,7 @@
 			{
 				"key": "site-return-all-info",
 				"tt_name": "site_return_all_info",
-				"name": "When checked, this category always has a value to show (as long as at least one active, non-hidden value is configured), so the Return No Results Found setting below will never actually trigger.",
+				"name": "The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
 				"type": "descriptive"
 			},
            {
@@ -155,7 +155,7 @@
 			{
 				"key" : "project-return-all-info",
 				"tt_name" : "project_return_all_info",
-				"name" : "When checked, this category always has a value to show (as long as at least one active, non-hidden value is configured), so the Return No Results Found setting below will never actually trigger.",
+				"name" : "The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
 				"type" : "descriptive"
 			},
             {

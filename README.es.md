@@ -155,6 +155,12 @@ entrada activa y no oculta siempre se incluye en los resultados de esa categorí
 del campo), y las entradas que sí coinciden con el texto ingresado se siguen ordenando primero - solo cambia su
 orden relativo, no se agrega ni se quita nada de lo que una búsqueda normal ya habría mostrado.
 
+**Interacción con `Return 'No Results Found'`:** esa opción se activa cuando el número de resultados es menor
+que el límite de resultados del campo, no solo cuando no hay ninguno (ver más abajo) - para una categoría corta
+y completamente enumerada, que es exactamente para lo que sirve `Return all values`, esto significa que su valor
+de reemplazo normalmente aparecerá junto con los resultados reales de cada búsqueda, no solo cuando no coincida
+nada. Marcar ambas opciones en la misma categoría probablemente no logre lo que se busca.
+
 ## Soporte de @HIDECHOICE
 
 Parte de la funcionalidad que se ah adicionado a este módulo es soportar la etiqueta de acción (action tag) @HIDECHOICE. 
