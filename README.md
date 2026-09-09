@@ -162,6 +162,15 @@ No hilighting will be shown in the UI, as only a full text match is emphasised.
 The module parses the codes and displays into an associative array before returning search results.
 If multiple entries have the same code, then the last entry will overwrite any existing entries. 
 
+### Return all values regardless of search text
+Both word-based and full-match search require the typed text to actually appear somewhere in an entry's display
+text or synonyms - which makes sense for a large list, but makes a short, fully-enumerated one (e.g. a frequency
+scale with values like "Never", "Rarely", "Weekly") hard to browse, since a user has to already know a value's
+exact wording to find it at all. Checking **Return all values regardless of search text** on a category removes
+that requirement: every active, non-hidden entry is always included in that category's results (up to the field's
+result limit), with entries that do match the typed text still sorted to the top - only their relative order
+changes, nothing is added or removed from what a normal search would have shown you first.
+
 ## @HIDECHOICE support
 As part of the 0.5 release extra functionality has been added to this module for it to consider the `@HIDECHOICE`
 action tag. This action tag is available for choice fields to indicate a choice should not be shown. This
@@ -174,6 +183,25 @@ field.
 @HIDECHOICE='code1,code2'
 ```
 ![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
+
+**Fixed: `@HIDECHOICE` was silently ignored on every real autocomplete search.** `getHideChoice()`'s in-memory fast
+path read the field's annotation from `$Proj->metadata[$field]['field_annotation']`, but REDCap's real in-memory
+project metadata stores it under the raw DB column name `misc` - `field_annotation` is a key name that only exists
+in `REDCap::getDataDictionary()`'s own returned array. Because the fast path's *presence* check
+(`isset($Proj->metadata[$field])`) still succeeded, it never fell through to the (correct) `getDataDictionary()`
+branch - it just silently returned no annotation, and therefore no hidden codes, for every real request. This had
+been broken since `@HIDECHOICE` was introduced in 0.5; it only ever appeared to work in this module's own test
+suite, whose fakes made the same `field_annotation` mistake.
+
+**Added: `@SIMPLE-ONTOLOGY-HIDECHOICE`, a second tag name for the same purpose.** `@HIDECHOICE` is also REDCap's
+own built-in action tag (for a different purpose, on real choice fields), and a module-provided action tag whose
+name collides with a built-in one is silently dropped from REDCap's own "@ Action Tags" popup rather than shown -
+so this module's repurposing of `@HIDECHOICE` could never be documented there. `@SIMPLE-ONTOLOGY-HIDECHOICE` is a
+new, non-colliding tag name recognized for exactly the same purpose, registered in that popup; both names are
+supported and can be freely mixed on the same field:
+```text
+@SIMPLE-ONTOLOGY-HIDECHOICE='code1,code2'
+```
 
 ## Refreshing the cache
 

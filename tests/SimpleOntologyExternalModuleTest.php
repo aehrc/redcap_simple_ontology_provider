@@ -21,6 +21,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         // all - override this back to null/empty explicitly.
         $this->module->currentProjectId = '1';
         \REDCap::$getDataDictionaryCallCount = 0;
+        \REDCap::$dataDictionary = [];
         unset($_GET['field'], $_GET['pid']);
         $GLOBALS['Proj'] = null;
     }
@@ -134,6 +135,65 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->assertArrayNotHasKey('C3', $results);
     }
 
+    // --- return-all ---
+    // Without this option, an entry matching none of the search words is
+    // dropped entirely - fine for a large list, but for a short,
+    // fully-enumerated one (e.g. a frequency scale) it means a user must
+    // already know a value's exact wording to find it at all.
+
+    public function testSearchOntologyReturnAllIncludesNonMatchingEntriesRankedAfterMatches(): void
+    {
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-values-type' => 'bar',
+            'site-values' => "C1|Never\nC2|Rarely\nC3|Weekly",
+            'site-return-all' => true,
+        ])];
+
+        $results = $this->module->searchOntology('test-cat', 'week', 20);
+
+        // 'week' only matches "Weekly" - it must sort first despite not
+        // being the first entry configured, with the rest keeping their
+        // original relative order after it.
+        $this->assertSame(['C3', 'C1', 'C2'], array_keys($results));
+    }
+
+    public function testSearchOntologyWithoutReturnAllStillDropsNonMatches(): void
+    {
+        // Same config as above but return-all unset - the pre-existing
+        // "must textually match" behavior must be unaffected.
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-values-type' => 'bar',
+            'site-values' => "C1|Never\nC2|Rarely\nC3|Weekly",
+        ])];
+
+        $results = $this->module->searchOntology('test-cat', 'week', 20);
+
+        $this->assertSame(['C3'], array_keys($results));
+    }
+
+    public function testSearchOntologyReturnAllStillExcludesHiddenAndInactiveEntries(): void
+    {
+        // A search term matching nothing would exclude every entry with or
+        // without return-all, which wouldn't actually prove hide-choice/
+        // inactive exclusion survives return-all specifically - so C3 here
+        // matches nothing but must still appear (via return-all), while C1
+        // (hidden) and C2 (inactive) must not, despite return-all's "show
+        // everything" default.
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-values-type' => 'bar',
+            'site-values' => "C1|Never\n!C2|Inactive\nC3|Rarely",
+            'site-return-all' => true,
+        ])];
+        $_GET['field'] = 'my_field';
+        $project = new \Project();
+        $project->metadata['my_field']['misc'] = "@HIDECHOICE='C1'";
+        $GLOBALS['Proj'] = $project;
+
+        $results = $this->module->searchOntology('test-cat', 'nomatch', 20);
+
+        $this->assertSame(['C3'], array_keys($results));
+    }
+
     public function testSearchOntologyFiltersInactiveEntries(): void
     {
         $this->module->subSettings['site-category-list'] = [$this->siteCategory([
@@ -238,15 +298,15 @@ final class SimpleOntologyExternalModuleTest extends TestCase
 
     // --- getHideChoice() ---
     // Regression coverage for a missing-`global $Proj` performance bug: the
-    // same pattern is also present, and still unfixed, in both FHIR-backed
-    // ontology modules' getHideChoice() as of this writing - see
-    // ontology-provider-testing-framework's tasks.md.
+    // same pattern is also present in both FHIR-backed ontology modules'
+    // getHideChoice() as of this writing - see ontology-provider-testing-framework's
+    // tasks.md.
 
     public function testGetHideChoiceUsesInMemoryProjectMetadataWithoutReloadingDictionary(): void
     {
         $project = new \Project();
         $project->project_id = '42';
-        $project->metadata['my_field']['field_annotation'] = "@HIDECHOICE='C1,C2'";
+        $project->metadata['my_field']['misc'] = "@HIDECHOICE='C1,C2'";
         $GLOBALS['Proj'] = $project;
         $_GET['field'] = 'my_field';
         $_GET['pid'] = '42';
@@ -270,6 +330,73 @@ final class SimpleOntologyExternalModuleTest extends TestCase
 
         $this->assertSame([], $hidden);
         $this->assertSame(1, \REDCap::$getDataDictionaryCallCount);
+    }
+
+    public function testGetHideChoiceFastPathReadsMiscKeyNotFieldAnnotationKey(): void
+    {
+        // Regression: $Proj->metadata[$field] stores the annotation under the
+        // raw DB column name 'misc', unlike getDataDictionary()'s array (which
+        // normalises it to 'field_annotation'). An earlier version of this
+        // fast path read 'field_annotation' here too, so it silently returned
+        // no annotation - and therefore no hidden codes - for every real
+        // request, despite the annotation genuinely being present.
+        $project = new \Project();
+        $project->project_id = '42';
+        $project->metadata['my_field']['misc'] = "@HIDECHOICE='A'";
+        $GLOBALS['Proj'] = $project;
+        $_GET['field'] = 'my_field';
+        $_GET['pid'] = '42';
+
+        $hidden = $this->module->getHideChoice();
+
+        $this->assertSame(['A'], $hidden);
+        $this->assertSame(0, \REDCap::$getDataDictionaryCallCount);
+    }
+
+    public function testGetHideChoiceFallsBackToDataDictionaryWhenProjMismatchesRequestedPid(): void
+    {
+        $project = new \Project();
+        $project->project_id = '17'; // a different project than requested
+        $project->metadata['my_field']['misc'] = "@HIDECHOICE='WRONG'";
+        $GLOBALS['Proj'] = $project;
+        \REDCap::$dataDictionary = ['my_field' => ['field_annotation' => "@HIDECHOICE='A'"]];
+        $_GET['field'] = 'my_field';
+        $_GET['pid'] = '42';
+
+        $hidden = $this->module->getHideChoice();
+
+        $this->assertSame(['A'], $hidden);
+        $this->assertSame(1, \REDCap::$getDataDictionaryCallCount);
+    }
+
+    // --- @SIMPLE-ONTOLOGY-HIDECHOICE ---
+    // A second, non-colliding tag name for the same purpose as @HIDECHOICE -
+    // @HIDECHOICE is also REDCap's own built-in action tag (for a different
+    // purpose, on real choice fields), so a module tag reusing that name can
+    // never be registered in REDCap's own "@ Action Tags" popup.
+
+    public function testGetHideChoiceRecognizesSimpleOntologyHideChoiceTag(): void
+    {
+        $project = new \Project();
+        $project->metadata['my_field']['misc'] = "@SIMPLE-ONTOLOGY-HIDECHOICE='X,Y'";
+        $GLOBALS['Proj'] = $project;
+        $_GET['field'] = 'my_field';
+
+        $hidden = $this->module->getHideChoice();
+
+        $this->assertSame(['X', 'Y'], $hidden);
+    }
+
+    public function testGetHideChoiceMergesBothTagNamesWhenBothPresent(): void
+    {
+        $project = new \Project();
+        $project->metadata['my_field']['misc'] = "@HIDECHOICE='A' @SIMPLE-ONTOLOGY-HIDECHOICE='B'";
+        $GLOBALS['Proj'] = $project;
+        $_GET['field'] = 'my_field';
+
+        $hidden = $this->module->getHideChoice();
+
+        $this->assertSame(['A', 'B'], $hidden);
     }
 
     // --- getOnlineDesignerSection() ---

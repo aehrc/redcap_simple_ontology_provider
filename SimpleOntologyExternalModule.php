@@ -195,6 +195,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
         $keys = ['site-category' => 'category',
             'site-name' => 'name',
             'site-search-type' => 'search-type',
+            'site-return-all' => 'return-all',
             'site-return-no-result' => 'return-no-result',
             'site-no-result-label' => 'no-result-label',
             'site-no-result-code' => 'no-result-code',
@@ -206,7 +207,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
         foreach ($rawSettings as $data) {
             $subSetting = [];
             foreach ($keys as $k => $nk) {
-                $subSetting[$nk] = $data[$k];
+                $subSetting[$nk] = isset($data[$k]) ? $data[$k] : null;
             }
             $subSettings[] = $subSetting;
         }
@@ -225,6 +226,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
         $keys = ['project-category' => 'category',
             'project-name' => 'name',
             'project-search-type' => 'search-type',
+            'project-return-all' => 'return-all',
             'project-return-no-result' => 'return-no-result',
             'project-no-result-label' => 'no-result-label',
             'project-no-result-code' => 'no-result-code',
@@ -236,7 +238,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
         foreach ($rawSettings as $data) {
             $subSetting = [];
             foreach ($keys as $k => $nk) {
-                $subSetting[$nk] = $data[$k];
+                $subSetting[$nk] = isset($data[$k]) ? $data[$k] : null;
             }
             $subSettings[] = $subSetting;
         }
@@ -368,7 +370,18 @@ EOD;
                     }
                 }
             }
-            if ($foundCount > 0) {
+            // Without return-all, an entry that matches none of the search
+            // words is dropped entirely - fine for a large list, but for a
+            // short, fully-enumerated one (e.g. a frequency scale) it means a
+            // user must already know a value's exact wording to find it at
+            // all. With return-all set, every active/non-hidden entry is kept
+            // regardless of match, still ranked by the same foundCount/minPos
+            // criteria below - a non-match's foundCount stays 0 (this
+            // module's default "no match" state), so it naturally sorts after
+            // every real match; array_multisort()'s stable sort (guaranteed
+            // since PHP 8.0, this module's own floor) then preserves each
+            // group's original configured order.
+            if ($foundCount > 0 || ($categoryData && !empty($categoryData['return-all']))) {
                 $wordResults[] = array('foundCount' => $foundCount, 'minPos' => $minPos, 'value' => $val);
             }
         }
@@ -558,24 +571,53 @@ EOD;
         return $str;
     }
 
-    function getHideChoice()
+    /**
+     * Returns the field currently being searched's raw field_annotation
+     * string, or null if there isn't one (or no field is being searched at
+     * all). $Proj->metadata[$field] stores this under the raw DB column name
+     * 'misc' - unlike REDCap::getDataDictionary()'s returned array, which
+     * normalises it to 'field_annotation' (see Classes/MetaData.php's
+     * getDataDictionaryHeaders()). An earlier version of this fast path read
+     * 'field_annotation' from $Proj->metadata too, so it silently returned no
+     * annotation - and therefore no hidden codes - for every real request,
+     * despite the annotation genuinely being present in $Proj->metadata.
+     */
+    private function getFieldAnnotation()
     {
         global $Proj;
+        if (!isset($_GET['field'])) {
+            return null;
+        }
+        $field = $_GET['field'];
+        $project_id = isset($_GET['pid']) ? $_GET['pid'] : null;
+        if (($project_id === null || (isset($Proj->project_id) && (string)$Proj->project_id === (string)$project_id))
+                && isset($Proj->metadata[$field])) {
+            return isset($Proj->metadata[$field]['misc']) ? $Proj->metadata[$field]['misc'] : null;
+        }
+        if ($project_id !== null) {
+            $dd_array = \REDCap::getDataDictionary($project_id, 'array', false, array($field));
+            return isset($dd_array[$field]['field_annotation']) ? $dd_array[$field]['field_annotation'] : null;
+        }
+        return null;
+    }
+
+    function getHideChoice()
+    {
         $codesToHide=[];
-        $annotations = null;
-        if (isset($_GET['field'])){
-            $field = $_GET['field'];
-            if (isset($Proj->metadata[$field])) {
-                $annotations = $Proj->metadata[$field]['field_annotation'];
-            }
-            else if (isset($_GET['pid'])){
-                $project_id = $_GET['pid'];
-                $dd_array = \REDCap::getDataDictionary($project_id, 'array', false, array($field));
-                $annotations = isset($dd_array[$field]) ? $dd_array[$field]['field_annotation'] : null;
-            }
-            if ($annotations) {
+        $annotations = $this->getFieldAnnotation();
+        if ($annotations) {
+            // @HIDECHOICE is also REDCap core's own built-in action tag (for a
+            // different purpose, on real choice fields); reusing its name here
+            // means this module's own use of it can never be registered in
+            // REDCap's "@ Action Tags" popup (a module tag colliding with a
+            // built-in one is silently dropped from that list, not shown -
+            // see Design/action_tag_explain.php). @SIMPLE-ONTOLOGY-HIDECHOICE
+            // is a second, non-colliding tag name recognized for the same
+            // purpose; both are supported and merged so existing fields using
+            // @HIDECHOICE keep working unchanged.
+            foreach (['@HIDECHOICE', '@SIMPLE-ONTOLOGY-HIDECHOICE'] as $tagName) {
                 $offset = 0;
-                while (preg_match("/@HIDECHOICE='([^']*)'/", $annotations, $matches, PREG_OFFSET_CAPTURE, $offset) === 1){
+                while (preg_match("/" . preg_quote($tagName, '/') . "='([^']*)'/", $annotations, $matches, PREG_OFFSET_CAPTURE, $offset) === 1){
                     $listedCodesStr = $matches[1][0];
                     $listedCodes = explode(',', $listedCodesStr);
                     foreach($listedCodes as $code){
