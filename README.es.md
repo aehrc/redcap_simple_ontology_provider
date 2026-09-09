@@ -143,6 +143,18 @@ No se resaltará ningún resultado, por cuanto se resaltan solamente los resulta
 El modulo procesa los códigos y los rótulos en un arreglo asociativo antes de retornar los resultados de búsqueda. 
 Si varias entradas tienen el mismo código entonces la última entrada sobrescribirá las entradas existentes.
 
+### Devolver todos los valores sin importar el texto de búsqueda
+
+Tanto la búsqueda basada en palabras como la de texto completo requieren que el texto ingresado aparezca
+realmente en algún lugar del texto de despliegue o los sinónimos de una entrada - lo cual tiene sentido para una
+lista grande, pero hace difícil navegar una lista corta y completamente enumerada (por ejemplo, una escala de
+frecuencia con valores como "Nunca", "Rara vez", "Semanalmente"), ya que el usuario debe conocer de antemano la
+redacción exacta de un valor para poder encontrarlo. Al marcar **Return all values regardless of search text**
+(Devolver todos los valores sin importar el texto de búsqueda) en una categoría se elimina ese requisito: cada
+entrada activa y no oculta siempre se incluye en los resultados de esa categoría (hasta el límite de resultados
+del campo), y las entradas que sí coinciden con el texto ingresado se siguen ordenando primero - solo cambia su
+orden relativo, no se agrega ni se quita nada de lo que una búsqueda normal ya habría mostrado.
+
 ## Soporte de @HIDECHOICE
 
 Parte de la funcionalidad que se ah adicionado a este módulo es soportar la etiqueta de acción (action tag) @HIDECHOICE. 
@@ -156,6 +168,29 @@ separada por comas. El módulo considera todas las entradas @HIDECHOICE encontra
 @HIDECHOICE='code1,code2'
 ```
 ![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
+
+**Corregido: `@HIDECHOICE` se ignoraba silenciosamente en cada búsqueda real de autocompletar.** La ruta rápida
+en memoria de `getHideChoice()` leía la anotación del campo desde
+`$Proj->metadata[$field]['field_annotation']`, pero los metadatos en memoria reales del proyecto en REDCap
+almacenan ese valor bajo el nombre de columna original de la base de datos, `misc` - `field_annotation` es un
+nombre de clave que solo existe en el arreglo que retorna `REDCap::getDataDictionary()`. Debido a que la
+verificación de *presencia* de la ruta rápida (`isset($Proj->metadata[$field])`) igual se cumplía, nunca pasaba
+a la rama (correcta) de `getDataDictionary()` - simplemente retornaba silenciosamente ninguna anotación, y por
+lo tanto ningún código oculto, en cada solicitud real. Esto estuvo roto desde que se introdujo `@HIDECHOICE` en
+la versión 0.5; solo parecía funcionar en la propia suite de pruebas del módulo, cuyos simulacros (fakes)
+cometían el mismo error con `field_annotation`.
+
+**Agregado: `@SIMPLE-ONTOLOGY-HIDECHOICE`, un segundo nombre de etiqueta para el mismo propósito.**
+`@HIDECHOICE` es también una etiqueta de acción propia e integrada de REDCap (para un propósito distinto, en
+campos de selección reales), y una etiqueta de acción provista por un módulo cuyo nombre coincide con una
+etiqueta integrada se descarta silenciosamente de la ventana emergente "@ Action Tags" de REDCap en lugar de
+mostrarse - por lo que el uso que este módulo hace de `@HIDECHOICE` nunca podía documentarse ahí.
+`@SIMPLE-ONTOLOGY-HIDECHOICE` es un nuevo nombre de etiqueta, sin conflicto, reconocido para exactamente el
+mismo propósito, y registrado en esa ventana emergente; ambos nombres son soportados y pueden combinarse
+libremente en el mismo campo:
+```text
+@SIMPLE-ONTOLOGY-HIDECHOICE='code1,code2'
+```
 
 ## Actualizar la caché
 
