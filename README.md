@@ -42,6 +42,12 @@ Any number of ontologies can be added, using the follow fields:
  * `Search Type` - This drop down is used to select the search algorithm to use. The choices are:
     * `Word Based` - This is the search mechanism introduced in version 0.3, each word is search separately.
     * `Full Match` - The full text is searched with no special behaviour for words.
+ * `Return all values` - Browse a short, fully-enumerated category without needing to guess its exact search
+   wording, instead of requiring the typed text to actually match. See
+   [Return all values regardless of search text](#return-all-values-regardless-of-search-text) below for the full
+   explanation, including its interaction with `Return 'No Results Found'`.
+ * `Priority Codes` - One code per line; a matching entry whose code is listed here sorts to the top of that
+   category's results, in the order listed. See [Priority Codes](#priority-codes) below for the full explanation.
  * `Return 'No Results Found'` - This check box is used to indicate that a special value should be returned if no values
   are returned by a search. The purpose of this is to allow the option to be selected and then have an additional field
   get activated via branching logic to receive additional data. It can also be used to fall  back to some default value.
@@ -176,6 +182,23 @@ field's result limit, not only when there are none (see below) - for a short, fu
 exactly what `Return all values` is for, this means its fallback value will typically appear alongside every
 search's real results, not just when nothing matches. Checking both settings on the same category is unlikely to
 do what you want.
+
+### Priority Codes
+**Priority Codes** (one code per line) sorts a matching entry to the top of that category's search results,
+ahead of any other match, in the order the codes are listed - useful for surfacing a category's most commonly
+picked values first even when several entries match the typed text equally well. Only the code is considered, not
+the display text or synonyms.
+
+Priority-codes only ever re-sorts *among* entries that already qualify for that search - listing a code here does
+not, by itself, make it appear. Without `Return all values`, an entry still has to actually match the typed text
+first; with `Return all values` set, it appears the same way every other non-matching entry does, just sorted to
+the front if it's also listed as a priority code.
+
+Unlike `advanced_fhir_ontology_provider`'s and `redcap_fhir_ontology_provider`'s own priority-codes, there is no
+"extra fetch" setting to configure here: those modules only get back a *subset* of results from an external FHIR
+server, so a priority code needs extra headroom to have a chance of being included at all. This module's values
+are always fully local and already all available, so priority-codes here is a pure re-sort of the complete set -
+nothing to tune.
 
 ## @HIDECHOICE support
 As part of the 0.5 release extra functionality has been added to this module for it to consider the `@HIDECHOICE`
