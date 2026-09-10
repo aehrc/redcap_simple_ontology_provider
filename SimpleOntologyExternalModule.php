@@ -101,6 +101,8 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
                     $errors .= "Invalid JSon [" . $siteCategory[$key] . "] : " . json_last_error_msg() . "\n";
                 } else if (!is_array($list)) {
                     $errors .= "Invalid JSon : Expected Array of objects\n";
+                } else {
+                    $errors .= $this->validateJsonValuesCodeAndDisplayAreScalar($rawValue, $siteCategory[$key]);
                 }
             }
         }
@@ -114,6 +116,8 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
                     $errors .= "Invalid JSon [" . $projectCategory[$key] . "] : " . json_last_error_msg() . "\n";
                 } else if (!is_array($list)) {
                     $errors .= "Invalid JSon : Expected Array of objects\n";
+                } else {
+                    $errors .= $this->validateJsonValuesCodeAndDisplayAreScalar($rawValue, $projectCategory[$key]);
                 }
             }
         }
@@ -168,6 +172,39 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
         }
 
 
+        return $errors;
+    }
+
+    /**
+     * Found during a final security review ahead of 1.0.0: parseCategoryValues()'s
+     * 'json' branch only checked isset($item['code'])/isset($item['display']),
+     * never that they were scalar. A category-values JSON entry with a non-scalar
+     * 'code' (e.g. {"code":{"a":1},"display":"x"} - valid JSON, and passes the
+     * is_array($list) check above since the outer value is still an array) is
+     * then used as an array key in labelMapFor()/searchOntology()
+     * ($map[$item['code']] = ...), which is a fatal TypeError on PHP 8 ("Illegal
+     * offset type") - reachable by any project designer who can edit that
+     * category's Values, not just a system admin. Rejected here instead, before
+     * the setting is ever saved.
+     */
+    private function validateJsonValuesCodeAndDisplayAreScalar($rawValue, $categoryLabel)
+    {
+        $errors = '';
+        $list = json_decode($rawValue, true);
+        if (!is_array($list)) {
+            return $errors;
+        }
+        foreach ($list as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            if (isset($item['code']) && !is_scalar($item['code'])) {
+                $errors .= "Invalid JSon [" . $categoryLabel . "] : 'code' must be a string or number, not an array/object\n";
+            }
+            if (isset($item['display']) && !is_scalar($item['display'])) {
+                $errors .= "Invalid JSon [" . $categoryLabel . "] : 'display' must be a string or number, not an array/object\n";
+            }
+        }
         return $errors;
     }
 
