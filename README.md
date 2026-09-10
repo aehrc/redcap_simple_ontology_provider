@@ -17,7 +17,7 @@ Version 0.5 introduces support for synonyms and marking entries as inactive.
 
 Dr Daniel Hinostroza from Hospital de Especialidades Carlos Andrade Marín very kindly wrote a Spanish
 translation for this module, you can find the readme here: [Documentación en español](?prefix=simple_ontology_provider&page=README.es.md)
-[Github Documentación en español](https://github.com/aehrc/redcap_simple_ontology_provider/blob/v0.5/README.es.md)
+[Github Documentación en español](https://github.com/aehrc/redcap_simple_ontology_provider/blob/main/README.es.md)
 Thanks to Alejandro Metke Jimenez for updating the Spanish readme for version 0.4 and 0.5.
 
 The module is licensed under CSIRO Open Source Software Licence Agreement (a variation of the BSD / MIT License).
@@ -25,7 +25,8 @@ The module is licensed under CSIRO Open Source Software Licence Agreement (a var
 ## Using the module
 Default option: download the module from the REDCap External Module Repo
 
-Option 2: download the module from Github and expand the .zip file into the modules folder, i.e., redcap/modules/simple_ontology_provider_v0.5. 
+Option 2: download the module from Github and expand the .zip file into the modules folder, matching the version
+number of the release you downloaded, i.e., redcap/modules/simple_ontology_provider_v1.0.0.
 The module will then become visible within the REDCap external modules.
 
 In both cases, this should allow configuration and the added benefit of receiving notifications whenever the module is updated within the Repo.
@@ -231,13 +232,12 @@ nothing to tune.
   codes that deliberately include leading/trailing whitespace, review your categories' `Values` before upgrading.
 
 ## @HIDECHOICE support
-As part of the 0.5 release extra functionality has been added to this module for it to consider the `@HIDECHOICE`
-action tag. This action tag is available for choice fields to indicate a choice should not be shown. This
-can be achieved at an global level in this module by using the active flag to mark an code as not active. The
-@HIDECHOICE action tag however is specified at a field level. So the value will only be hidden for the field the
-action tag is specified for. The set of values to hide is defined using a comma separated list of code for the
-values which should be hidden. The module considers all @HIDECHOICE entries found in the annotations property of the
-field.
+Support for the `@HIDECHOICE` action tag was added to this module in version 0.5. This action tag is available for
+choice fields to indicate a choice should not be shown. This can be achieved at an global level in this module by
+using the active flag to mark an code as not active. The @HIDECHOICE action tag however is specified at a field
+level. So the value will only be hidden for the field the action tag is specified for. The set of values to hide is
+defined using a comma separated list of code for the values which should be hidden. The module considers all
+@HIDECHOICE entries found in the annotations property of the field.
 ```text
 @HIDECHOICE='code1,code2'
 ```
