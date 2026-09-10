@@ -61,6 +61,18 @@
              ]
            },
            {
+				"key": "site-return-all",
+                "tt_name": "site_return_all",
+				"name": "Return all values",
+				"type": "checkbox"
+			},
+			{
+				"key": "site-return-all-info",
+				"tt_name": "site_return_all_info",
+				"name": "Browse a short, fully-enumerated category without needing to guess its exact search wording. The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
+				"type": "descriptive"
+			},
+           {
 				"key": "site-return-no-result",
                 "tt_name": "site_return_no_result",
 				"name": "Return 'No Results Found'",
@@ -135,6 +147,18 @@
              ]
            },
             {
+				"key" : "project-return-all",
+                "tt_name" : "project_return_all",
+				"name" : "Return all values",
+				"type" : "checkbox"
+			},
+			{
+				"key" : "project-return-all-info",
+				"tt_name" : "project_return_all_info",
+				"name" : "Browse a short, fully-enumerated category without needing to guess its exact search wording. The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
+				"type" : "descriptive"
+			},
+            {
 				"key" : "project-return-no-result",
                 "tt_name" : "project_return_no_result",
 				"name" : "Return 'No Results Found'",
@@ -197,6 +221,12 @@
   "auth-ajax-actions": [
     "preview-cache-refresh",
     "apply-cache-refresh"
+  ],
+  "action-tags": [
+    {
+      "tag": "@SIMPLE-ONTOLOGY-HIDECHOICE",
+      "description": "<b>@SIMPLE-ONTOLOGY-HIDECHOICE='code1,code2'</b><br>For a field using this module's site/project-defined ontology support, hides the listed codes so they never appear as selectable options in the field's autocomplete search. Codes are a comma-separated list.<br>This module also recognizes the older <code>@HIDECHOICE</code> tag name for the same purpose (for backward compatibility with existing fields); it isn't listed separately here because it collides with REDCap's own built-in @HIDECHOICE tag for standard choice fields, which this popup always shows instead."
+    }
   ],
   "compatibility": {
     "php-version-min": "8.0.0",

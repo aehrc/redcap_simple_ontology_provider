@@ -257,10 +257,13 @@ namespace {
          *  getHideChoice() avoided this full-dictionary-reload path. */
         public static int $getDataDictionaryCallCount = 0;
 
+        /** @var array Canned return value for getDataDictionary(), settable per test. */
+        public static array $dataDictionary = [];
+
         public static function getDataDictionary($project_id, $format = 'array', $numeric = false, $fields = null, $forms = null)
         {
             self::$getDataDictionaryCallCount++;
-            return [];
+            return self::$dataDictionary;
         }
     }
 

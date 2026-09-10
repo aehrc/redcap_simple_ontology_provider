@@ -117,7 +117,7 @@ Para valores json, el valor se adiciona a través del atributo activo.
 Este es el equivalente en formato json. Si el atributo active no está presente o su valor es diferente a false la 
 entrada se considerará activa.
 
-![SimpleOntology Settings](SimpleOntologySettings_v0.4.es.png)
+![SimpleOntology Settings](SimpleOntologySettings.es.png)
 
 ## Búsqueda basada en palabras
 La funcionalidad de autocompletar implementada por el módulo siempre hará una búsqueda de texto simple en el texto de despliegue para el texto ingresado. En la versión 0.3, un mecanismo basado en palabras fue implementado, pero en la versión 0.4 una nueva opción ha sido agregada para seleccionar entre búsqueda por palabras y búsqueda por el texto completo.
@@ -143,6 +143,24 @@ No se resaltará ningún resultado, por cuanto se resaltan solamente los resulta
 El modulo procesa los códigos y los rótulos en un arreglo asociativo antes de retornar los resultados de búsqueda. 
 Si varias entradas tienen el mismo código entonces la última entrada sobrescribirá las entradas existentes.
 
+### Devolver todos los valores sin importar el texto de búsqueda
+
+Tanto la búsqueda basada en palabras como la de texto completo requieren que el texto ingresado aparezca
+realmente en algún lugar del texto de despliegue o los sinónimos de una entrada - lo cual tiene sentido para una
+lista grande, pero hace difícil navegar una lista corta y completamente enumerada (por ejemplo, una escala de
+frecuencia con valores como "Nunca", "Rara vez", "Semanalmente"), ya que el usuario debe conocer de antemano la
+redacción exacta de un valor para poder encontrarlo. Al marcar **Return all values** (Devolver todos los valores)
+en una categoría se elimina ese requisito: cada
+entrada activa y no oculta siempre se incluye en los resultados de esa categoría (hasta el límite de resultados
+del campo), y las entradas que sí coinciden con el texto ingresado se siguen ordenando primero - solo cambia su
+orden relativo, no se agrega ni se quita nada de lo que una búsqueda normal ya habría mostrado.
+
+**Interacción con `Return 'No Results Found'`:** esa opción se activa cuando el número de resultados es menor
+que el límite de resultados del campo, no solo cuando no hay ninguno (ver más abajo) - para una categoría corta
+y completamente enumerada, que es exactamente para lo que sirve `Return all values`, esto significa que su valor
+de reemplazo normalmente aparecerá junto con los resultados reales de cada búsqueda, no solo cuando no coincida
+nada. Marcar ambas opciones en la misma categoría probablemente no logre lo que se busca.
+
 ## Soporte de @HIDECHOICE
 
 Parte de la funcionalidad que se ah adicionado a este módulo es soportar la etiqueta de acción (action tag) @HIDECHOICE. 
@@ -156,6 +174,41 @@ separada por comas. El módulo considera todas las entradas @HIDECHOICE encontra
 @HIDECHOICE='code1,code2'
 ```
 ![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
+
+**Corregido: `@HIDECHOICE` se ignoraba silenciosamente en cada búsqueda real de autocompletar.** La ruta rápida
+en memoria de `getHideChoice()` leía la anotación del campo desde
+`$Proj->metadata[$field]['field_annotation']`, pero los metadatos en memoria reales del proyecto en REDCap
+almacenan ese valor bajo el nombre de columna original de la base de datos, `misc` - `field_annotation` es un
+nombre de clave que solo existe en el arreglo que retorna `REDCap::getDataDictionary()`. Debido a que la
+verificación de *presencia* de la ruta rápida (`isset($Proj->metadata[$field])`) igual se cumplía, nunca pasaba
+a la rama (correcta) de `getDataDictionary()` - simplemente retornaba silenciosamente ninguna anotación, y por
+lo tanto ningún código oculto, en cada solicitud real. Esto estuvo roto desde que se introdujo `@HIDECHOICE` en
+la versión 0.5; solo parecía funcionar en la propia suite de pruebas del módulo, cuyos simulacros (fakes)
+cometían el mismo error con `field_annotation`.
+
+**Agregado: `@SIMPLE-ONTOLOGY-HIDECHOICE`, un segundo nombre de etiqueta para el mismo propósito.**
+`@HIDECHOICE` es también una etiqueta de acción propia e integrada de REDCap (para un propósito distinto, en
+campos de selección reales), y una etiqueta de acción provista por un módulo cuyo nombre coincide con una
+etiqueta integrada se descarta silenciosamente de la ventana emergente "@ Action Tags" de REDCap en lugar de
+mostrarse - por lo que el uso que este módulo hace de `@HIDECHOICE` nunca podía documentarse ahí.
+`@SIMPLE-ONTOLOGY-HIDECHOICE` es un nuevo nombre de etiqueta, sin conflicto, reconocido para exactamente el
+mismo propósito, y registrado en esa ventana emergente; ambos nombres son soportados y pueden combinarse
+libremente en el mismo campo:
+```text
+@SIMPLE-ONTOLOGY-HIDECHOICE='code1,code2'
+```
+
+**El uso de "piping" no es compatible, y actualmente no es posible, en el argumento de ninguna de las dos
+etiquetas** (por ejemplo, `@HIDECHOICE='[otro_campo]'` para ocultar un código elegido según la respuesta de otro
+campo). La propia etiqueta `@HIDECHOICE` integrada de REDCap resuelve el piping en su argumento mediante
+`Piping::replaceVariablesInLabel($texto, $record, $event_id, $instance, ...)`, que necesita saber qué registro se
+está editando en ese momento. Las etiquetas de este módulo se leen dentro de
+`DataEntry/web_service_auto_suggest.php` - el mismo endpoint real al que llega cada búsqueda de este campo - y la
+solicitud de ese endpoint nunca incluye un identificador de registro, evento o instancia; el propio JavaScript de
+REDCap solo le envía `term`, `field` y `pid`. No hay ningún contexto de registro disponible para resolver el
+piping desde aquí, sin importar cómo este módulo interprete la etiqueta, por lo que esto no es una funcionalidad
+pendiente sino una limitación del propio punto de integración - solo sería posible si una futura versión de
+REDCap comenzara a incluir el contexto del registro en esa solicitud.
 
 ## Actualizar la caché
 
@@ -177,10 +230,14 @@ Se proporcionan dos enlaces para solucionar esto, según dónde se defina la cat
   ese proyecto en su lugar, para que su caché se corrija con sus propios valores y no con los del
   sitio.
 
+![Enlace Refresh Ontology Cache en el panel de Módulos Externos del proyecto](SimpleOntologyCacheRefreshLink.png)
+
 Ambas páginas funcionan igual: elija una categoría, revise las entradas cuya etiqueta en caché ya no
 coincide con lo que la categoría define actualmente (un código que ya no existe en la categoría se
 deja intacto, ya que no hay un valor correcto con el cual reemplazarlo), y luego aplique la
 corrección a las que confirme.
+
+![Página Refresh Ontology Cache mostrando los cambios de etiqueta propuestos](SimpleOntologyCacheRefreshPreview.png)
 
 Si guarda una categoría con valores distintos a los que tenía antes, el módulo lo recuerda y muestra
 un aviso - tanto la próxima vez que abra el diálogo de configuración de este módulo, como

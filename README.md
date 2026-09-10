@@ -133,7 +133,7 @@ For `json` values, the value is added using an `active` attribue.
 This is the equivalent in json format. If active is missing or set to something else then the entry will be considered 
 active.
 
-![SimpleOntology Settings](SimpleOntologySettings_v0.4.png)
+![SimpleOntology Settings](SimpleOntologySettings.png)
 
 ## Word based searching
 The autocomplete implemented by the module will do a simple text search of the display text for the entered text.
@@ -162,6 +162,21 @@ No hilighting will be shown in the UI, as only a full text match is emphasised.
 The module parses the codes and displays into an associative array before returning search results.
 If multiple entries have the same code, then the last entry will overwrite any existing entries. 
 
+### Return all values regardless of search text
+Both word-based and full-match search require the typed text to actually appear somewhere in an entry's display
+text or synonyms - which makes sense for a large list, but makes a short, fully-enumerated one (e.g. a frequency
+scale with values like "Never", "Rarely", "Weekly") hard to browse, since a user has to already know a value's
+exact wording to find it at all. Checking **Return all values** on a category removes
+that requirement: every active, non-hidden entry is always included in that category's results (up to the field's
+result limit), with entries that do match the typed text still sorted to the top - only their relative order
+changes, nothing is added or removed from what a normal search would have shown you first.
+
+**Interaction with `Return 'No Results Found'`:** that setting triggers whenever the result count is below the
+field's result limit, not only when there are none (see below) - for a short, fully-enumerated category, which is
+exactly what `Return all values` is for, this means its fallback value will typically appear alongside every
+search's real results, not just when nothing matches. Checking both settings on the same category is unlikely to
+do what you want.
+
 ## @HIDECHOICE support
 As part of the 0.5 release extra functionality has been added to this module for it to consider the `@HIDECHOICE`
 action tag. This action tag is available for choice fields to indicate a choice should not be shown. This
@@ -174,6 +189,36 @@ field.
 @HIDECHOICE='code1,code2'
 ```
 ![Adding the @HIDECHOICE action tag](SimpleOntologyHideChoice.png)
+
+**Fixed: `@HIDECHOICE` was silently ignored on every real autocomplete search.** `getHideChoice()`'s in-memory fast
+path read the field's annotation from `$Proj->metadata[$field]['field_annotation']`, but REDCap's real in-memory
+project metadata stores it under the raw DB column name `misc` - `field_annotation` is a key name that only exists
+in `REDCap::getDataDictionary()`'s own returned array. Because the fast path's *presence* check
+(`isset($Proj->metadata[$field])`) still succeeded, it never fell through to the (correct) `getDataDictionary()`
+branch - it just silently returned no annotation, and therefore no hidden codes, for every real request. This had
+been broken since `@HIDECHOICE` was introduced in 0.5; it only ever appeared to work in this module's own test
+suite, whose fakes made the same `field_annotation` mistake.
+
+**Added: `@SIMPLE-ONTOLOGY-HIDECHOICE`, a second tag name for the same purpose.** `@HIDECHOICE` is also REDCap's
+own built-in action tag (for a different purpose, on real choice fields), and a module-provided action tag whose
+name collides with a built-in one is silently dropped from REDCap's own "@ Action Tags" popup rather than shown -
+so this module's repurposing of `@HIDECHOICE` could never be documented there. `@SIMPLE-ONTOLOGY-HIDECHOICE` is a
+new, non-colliding tag name recognized for exactly the same purpose, registered in that popup; both names are
+supported and can be freely mixed on the same field:
+```text
+@SIMPLE-ONTOLOGY-HIDECHOICE='code1,code2'
+```
+
+**Piping is not supported, and not currently possible, in either tag's argument** (e.g.
+`@HIDECHOICE='[other_field]'` to hide a code chosen by another field's answer). REDCap core's own built-in
+`@HIDECHOICE` resolves piping in its argument via `Piping::replaceVariablesInLabel($text, $record, $event_id,
+$instance, ...)`, which needs to know which record is currently being edited. This module's field-level tags are
+read from inside `DataEntry/web_service_auto_suggest.php` - the same real endpoint every search on this field hits
+- and that endpoint's request never carries a record, event, or instance identifier at all; REDCap core's own
+front-end JS only ever sends `term`, `field`, and `pid` to it. There is no record context available to pipe
+against from here, regardless of how this module parses the tag, so this isn't a missing feature so much as a
+limitation of the integration point itself - it would only become possible if a future REDCap version started
+including record context in that request.
 
 ## Refreshing the cache
 
@@ -193,10 +238,14 @@ Two links are provided to fix this, matching where a category is defined:
   that project's own page instead, so its cache is corrected with its own values rather than the
   site-wide ones.
 
+![Refresh Ontology Cache link in the project's External Modules panel](SimpleOntologyCacheRefreshLink.png)
+
 Both pages work the same way: pick a category, preview the entries whose cached label no longer
 matches what the category currently defines (a code that no longer exists in the category at all is
 left alone, since there is nothing correct to replace it with), then apply the correction to the
 ones you confirm.
+
+![Refresh Ontology Cache page previewing proposed label changes](SimpleOntologyCacheRefreshPreview.png)
 
 If you save a category with different values than it had before, the module remembers this and
 shows a reminder - both the next time you open this module's configuration dialog, and by
