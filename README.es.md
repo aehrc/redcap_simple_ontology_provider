@@ -54,6 +54,8 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
 ]
 ```
  * `Valores` - Los valores que se importarán en la ontología. El formato depende del tipo de valores seleccionado.
+   Para `json`, el `code` y `display` de cada elemento deben ser una cadena de texto o un número - no un array ni un
+   objeto - y se rechazan al guardar en caso contrario.
 
 ### Solución de problemas: la sección de ontología no aparece en el Diseñador en línea
 

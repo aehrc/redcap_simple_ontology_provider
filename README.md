@@ -78,7 +78,9 @@ Any number of ontologies can be added, using the follow fields:
  { "code" : "Thirteenth Doctor", "display" : "Jodie Whittaker",       "period" : "2017-12-25" }
 ]
 ```
- * `Values` - The actual values in the set. The format will depend on the Values Type chosen.
+ * `Values` - The actual values in the set. The format will depend on the Values Type chosen. For `json`, each
+   entry's `code` and `display` must be a plain string or number - not an array or object - and is rejected at
+   save time otherwise.
 
 ### Troubleshooting: the ontology section is missing entirely from the Online Designer
 

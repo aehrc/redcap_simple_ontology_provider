@@ -779,6 +779,52 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->assertSame('', $errors);
     }
 
+    // --- validateSettings(): 'json' values-type code/display must be scalar ---
+    // Regression coverage found during a final security review ahead of 1.0.0:
+    // a JSON entry with a non-scalar 'code' passed isset()'s check but crashed
+    // later (labelMapFor()/searchOntology() use it as an array key) with an
+    // uncaught TypeError - reachable by any project designer, not just a
+    // system admin. validateSettings() must reject it before it's ever saved.
+
+    public function testValidateSettingsRejectsJsonValuesWithNonScalarCode(): void
+    {
+        $this->module->currentProjectId = null;
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+
+        $errors = $this->module->validateSettings($this->settingsPayload([
+            'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
+            'values-type' => ['json'], 'values' => ['[{"code":{"a":1},"display":"x"}]'],
+        ]));
+
+        $this->assertStringContainsString("'code' must be a string or number", $errors);
+    }
+
+    public function testValidateSettingsRejectsJsonValuesWithNonScalarDisplay(): void
+    {
+        $this->module->currentProjectId = null;
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+
+        $errors = $this->module->validateSettings($this->settingsPayload([
+            'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
+            'values-type' => ['json'], 'values' => ['[{"code":"C1","display":["x"]}]'],
+        ]));
+
+        $this->assertStringContainsString("'display' must be a string or number", $errors);
+    }
+
+    public function testValidateSettingsAcceptsWellFormedJsonValues(): void
+    {
+        $this->module->currentProjectId = null;
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory()];
+
+        $errors = $this->module->validateSettings($this->settingsPayload([
+            'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
+            'values-type' => ['json'], 'values' => ['[{"code":"C1","display":"Display One"}]'],
+        ]));
+
+        $this->assertSame('', $errors);
+    }
+
     public function testRedcapModuleSaveConfigurationDoesNotThrowForSystemLevelSaveWithNoProjectContext(): void
     {
         $this->module->currentProjectId = null;
