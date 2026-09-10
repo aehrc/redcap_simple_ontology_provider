@@ -48,6 +48,24 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
 ```
  * `Valores` - Los valores que se importarán en la ontología. El formato depende del tipo de valores seleccionado.
 
+### Solución de problemas: la sección de ontología no aparece en el Diseñador en línea
+
+Si la sección "Seleccione la ontología local a utilizar" nunca aparece al editar un campo de texto en el Diseñador
+en línea - aunque una categoría esté correctamente configurada - revise la página **Configuración General** del
+Centro de Control, en la opción **"¿Puede el servidor REDCap acceder a la web (hacer llamadas HTTP salientes)?"**.
+Si está configurada como **"No, el servidor REDCap no tiene acceso a la World Wide Web"**, el núcleo de REDCap
+(`OntologyManager::buildOntologySelection()`) no devuelve nada para *ningún* proveedor de ontologías registrado,
+antes siquiera de llamar a cualquiera de ellos - confirmado leyendo directamente ese método
+(`global $allow_outbound_http; if (!$allow_outbound_http) return '';`).
+
+Esto ocurre incluso cuando este módulo no realiza ninguna llamada HTTP saliente por sí mismo - es un proveedor
+puramente local, basado en listas estáticas. El propio control del núcleo de REDCap no puede distinguir "un
+proveedor de ontologías que necesita internet" (la integración incorporada con BioPortal) de "uno que no lo
+necesita" (este módulo); desactiva todo el mecanismo a nivel de sitio según una configuración que, para
+administradores que han bloqueado deliberadamente el acceso saliente por razones ajenas, no tiene nada que ver
+con este módulo. No hay nada que este módulo (ni ningún otro módulo externo proveedor de ontologías) pueda hacer
+al respecto desde fuera del núcleo de REDCap.
+
 ### Sinónimos
 
 La versión 0.5 de este modulo introduce soporte para sinónimos. Un sinónimo es una representación textual alternativa 

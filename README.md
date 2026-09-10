@@ -74,6 +74,21 @@ Any number of ontologies can be added, using the follow fields:
 ```
  * `Values` - The actual values in the set. The format will depend on the Values Type chosen.
 
+### Troubleshooting: the ontology section is missing entirely from the Online Designer
+
+If the "Select Local Ontology to use" section never appears when editing a text field in the Online Designer - even
+though a category is correctly configured - check Control Center's **General Configuration** page, under
+**"Can REDCap server access the web (make outbound HTTP calls)?"**. If this is set to **"No, REDCap server does not
+have access to the World Wide Web"**, REDCap core's `OntologyManager::buildOntologySelection()` returns nothing at
+all for *every* registered ontology provider, before ever calling into any of them - confirmed by reading that
+method directly (`global $allow_outbound_http; if (!$allow_outbound_http) return '';`).
+
+This applies even though this module makes no outbound HTTP calls itself - it is a purely local, static-list
+provider. REDCap core's own check has no way to distinguish "an ontology provider that needs the internet" (the
+built-in BioPortal integration) from "one that doesn't" (this module); it disables the entire mechanism site-wide
+based on a setting that, for administrators who have deliberately locked down outbound access for unrelated
+reasons, has nothing to do with this module at all. There is nothing this module (or any other ontology provider
+external module) can do about this from outside REDCap core.
 
 ### Synonyms
 Version 0.5 of the module introduces support for synonyms. A synonym is an alternative text representation for
