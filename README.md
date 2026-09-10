@@ -1,19 +1,19 @@
 # Simple Ontology External Module
 
+This module allows the definition of a custom set of 'ontologies' which can be used to provide autocomplete
+functionality for a text field, without needing an external server: each ontology is a static list of code/display
+pairs (and optional synonyms) entered directly into the module's settings. Ontologies can be defined at a site or
+project level, and a default value can be specified to be returned if no match is found. Since version 0.4, an
+option has been added to select to swap between word based searching and a full match with all entered text.
+
+Version 0.5 introduces support for synonyms and marking entries as inactive.
+
 For a terser, automatically generated commit-by-commit version record, see [CHANGELOG.md](./CHANGELOG.md).
 
 ## Requirements
 
 - PHP 8.0.0 or later
 - REDCap 8.8.1 or later, on External Module framework version 16 or later
-
-This redcap external module allows the definition of a custom set of 'ontologies' which can be used to provide
-autocomplete functionality for a text field. Ontologies can be defined at a site or project level, and a default value
-can be specified to be returned if no match is found. Since version 0.4, an option has been added to select to swap
-between word based searching and a full match with all entered text.
-
-Version 0.5 introduces support for synonyms and marking entries as inactive.
-
 
 Dr Daniel Hinostroza from Hospital de Especialidades Carlos Andrade Marín very kindly wrote a Spanish
 translation for this module, you can find the readme here: [Documentación en español](?prefix=simple_ontology_provider&page=README.es.md)
