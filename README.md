@@ -18,7 +18,8 @@ For a terser, automatically generated commit-by-commit version record, see [CHAN
 Dr Daniel Hinostroza from Hospital de Especialidades Carlos Andrade Marín very kindly wrote a Spanish
 translation for this module, you can find the readme here: [Documentación en español](?prefix=simple_ontology_provider&page=README.es.md)
 [Github Documentación en español](https://github.com/aehrc/redcap_simple_ontology_provider/blob/main/README.es.md)
-Thanks to Alejandro Metke Jimenez for updating the Spanish readme for version 0.4 and 0.5.
+Thanks to Alejandro Metke Jimenez for updating the Spanish readme for version 0.4 and 0.5; it has continued to be
+kept in sync with this README since.
 
 The module is licensed under CSIRO Open Source Software Licence Agreement (a variation of the BSD / MIT License).
 
