@@ -1,5 +1,13 @@
 # Simple Ontology External Module
 
+This module allows the definition of a custom set of 'ontologies' which can be used to provide autocomplete
+functionality for a text field, without needing an external server: each ontology is a static list of code/display
+pairs (and optional synonyms) entered directly into the module's settings. Ontologies can be defined at a site or
+project level, and a default value can be specified to be returned if no match is found. Since version 0.4, an
+option has been added to select to swap between word based searching and a full match with all entered text.
+
+Version 0.5 introduces support for synonyms and marking entries as inactive.
+
 For a terser, automatically generated commit-by-commit version record, see [CHANGELOG.md](./CHANGELOG.md).
 
 ## Requirements
@@ -7,25 +15,19 @@ For a terser, automatically generated commit-by-commit version record, see [CHAN
 - PHP 8.0.0 or later
 - REDCap 8.8.1 or later, on External Module framework version 16 or later
 
-This redcap external module allows the definition of a custom set of 'ontologies' which can be used to provide
-autocomplete functionality for a text field. Ontologies can be defined at a site or project level, and a default value
-can be specified to be returned if no match is found. Since version 0.4, an option has been added to select to swap
-between word based searching and a full match with all entered text.
-
-Version 0.5 introduces support for synonyms and marking entries as inactive.
-
-
 Dr Daniel Hinostroza from Hospital de Especialidades Carlos Andrade Marín very kindly wrote a Spanish
 translation for this module, you can find the readme here: [Documentación en español](?prefix=simple_ontology_provider&page=README.es.md)
-[Github Documentación en español](https://github.com/aehrc/redcap_simple_ontology_provider/blob/v0.5/README.es.md)
-Thanks to Alejandro Metke Jimenez for updating the Spanish readme for version 0.4 and 0.5.
+[Github Documentación en español](https://github.com/aehrc/redcap_simple_ontology_provider/blob/main/README.es.md)
+Thanks to Alejandro Metke Jimenez for updating the Spanish readme for version 0.4 and 0.5; it has continued to be
+kept in sync with this README since.
 
 The module is licensed under CSIRO Open Source Software Licence Agreement (a variation of the BSD / MIT License).
 
 ## Using the module
 Default option: download the module from the REDCap External Module Repo
 
-Option 2: download the module from Github and expand the .zip file into the modules folder, i.e., redcap/modules/simple_ontology_provider_v0.5. 
+Option 2: download the module from Github and expand the .zip file into the modules folder, matching the version
+number of the release you downloaded, i.e., redcap/modules/simple_ontology_provider_v1.0.0.
 The module will then become visible within the REDCap external modules.
 
 In both cases, this should allow configuration and the added benefit of receiving notifications whenever the module is updated within the Repo.
@@ -231,13 +233,12 @@ nothing to tune.
   codes that deliberately include leading/trailing whitespace, review your categories' `Values` before upgrading.
 
 ## @HIDECHOICE support
-As part of the 0.5 release extra functionality has been added to this module for it to consider the `@HIDECHOICE`
-action tag. This action tag is available for choice fields to indicate a choice should not be shown. This
-can be achieved at an global level in this module by using the active flag to mark an code as not active. The
-@HIDECHOICE action tag however is specified at a field level. So the value will only be hidden for the field the
-action tag is specified for. The set of values to hide is defined using a comma separated list of code for the
-values which should be hidden. The module considers all @HIDECHOICE entries found in the annotations property of the
-field.
+Support for the `@HIDECHOICE` action tag was added to this module in version 0.5. This action tag is available for
+choice fields to indicate a choice should not be shown. This can be achieved at an global level in this module by
+using the active flag to mark an code as not active. The @HIDECHOICE action tag however is specified at a field
+level. So the value will only be hidden for the field the action tag is specified for. The set of values to hide is
+defined using a comma separated list of code for the values which should be hidden. The module considers all
+@HIDECHOICE entries found in the annotations property of the field.
 ```text
 @HIDECHOICE='code1,code2'
 ```
