@@ -196,6 +196,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
             'site-name' => 'name',
             'site-search-type' => 'search-type',
             'site-return-all' => 'return-all',
+            'site-priority-codes' => 'priority-codes',
             'site-return-no-result' => 'return-no-result',
             'site-no-result-label' => 'no-result-label',
             'site-no-result-code' => 'no-result-code',
@@ -227,6 +228,7 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
             'project-name' => 'name',
             'project-search-type' => 'search-type',
             'project-return-all' => 'return-all',
+            'project-priority-codes' => 'priority-codes',
             'project-return-no-result' => 'return-no-result',
             'project-no-result-label' => 'no-result-label',
             'project-no-result-code' => 'no-result-code',
@@ -311,6 +313,7 @@ EOD;
 
         $categoryData = isset($categories[$category]) ? $categories[$category] : null;
         $values = $categoryData ? $this->parseCategoryValues($categoryData) : array();
+        $priorityCodes = $categoryData ? $this->parsePriorityCodes($categoryData) : array();
         //error_log(print_r($values, TRUE));
         $wordResults = array();
         $strippedSearchTerm = $this->skip_accents($search_term);
@@ -382,14 +385,26 @@ EOD;
             // since PHP 8.0, this module's own floor) then preserves each
             // group's original configured order.
             if ($foundCount > 0 || ($categoryData && !empty($categoryData['return-all']))) {
-                $wordResults[] = array('foundCount' => $foundCount, 'minPos' => $minPos, 'value' => $val);
+                // priority-codes only ever re-sorts among entries that already
+                // qualify above (a real match, or kept regardless by
+                // return-all) - it never forces in an otherwise-excluded
+                // entry, matching advanced_fhir_ontology_provider's and
+                // redcap_fhir_ontology_provider's own priority-codes.
+                $priorityRank = array_search($code, $priorityCodes, true);
+                $priorityKey = ($priorityRank === false) ? count($priorityCodes) : $priorityRank;
+                $wordResults[] = array('priorityKey' => $priorityKey, 'foundCount' => $foundCount, 'minPos' => $minPos, 'value' => $val);
             }
         }
+        $priorityColumn = array_column($wordResults, 'priorityKey');
         $fcColumn = array_column($wordResults, 'foundCount');
         $posColumn = array_column($wordResults, 'minPos');
 
-        // sort on word match count then on closest to start of string
-        array_multisort($fcColumn, SORT_DESC, $posColumn, SORT_ASC, $wordResults);
+        // Priority-codes (in the order listed) sort first, ahead of match
+        // quality - then within each priority group, word match count, then
+        // closest to start of string. array_multisort()'s stable sort
+        // (guaranteed since PHP 8.0) preserves each group's original relative
+        // order beyond that.
+        array_multisort($priorityColumn, SORT_ASC, $fcColumn, SORT_DESC, $posColumn, SORT_ASC, $wordResults);
         $mresults = array_column($wordResults, 'value');
 
         $results = array();
@@ -483,6 +498,30 @@ EOD;
     }
 
     /**
+     * Parses a category's 'priority-codes' setting (one code per line) into a
+     * plain list of trimmed, non-empty codes, in the order listed. Unlike
+     * advanced_fhir_ontology_provider's/redcap_fhir_ontology_provider's
+     * priority-codes, this module's values are always fully local - there is
+     * no external server response to pad/extend with extra headroom, so
+     * priority-codes here is a pure local re-sort with no fetch-limit concept.
+     */
+    private function parsePriorityCodes($categoryData)
+    {
+        $raw = isset($categoryData['priority-codes']) ? $categoryData['priority-codes'] : null;
+        if (!$raw) {
+            return array();
+        }
+        $codes = array();
+        foreach (preg_split("/\r\n|\n|\r/", $raw) as $line) {
+            $trimmed = trim($line);
+            if ($trimmed !== '') {
+                $codes[] = $trimmed;
+            }
+        }
+        return $codes;
+    }
+
+    /**
      * Parse a category's raw 'values' config into a list of
      * ['code' => .., 'display' => .., 'active' => .., 'synonyms' => ..]
      * entries, regardless of 'values-type'. Shared by searchOntology() and
@@ -507,6 +546,14 @@ EOD;
                     $item = substr($item, 1);  // remove leading !
                     $active = false;
                 }
+                // BREAKING CHANGE (see README): trimmed so an incidental
+                // leading/trailing space (e.g. pasted from a spreadsheet)
+                // can't silently break @HIDECHOICE/priority-codes matching -
+                // both compare a code typed into a separate setting against
+                // this one with a strict, whitespace-sensitive check, which
+                // is the first time this code's own whitespace is ever
+                // compared against anything else.
+                $item = trim($item);
                 $values[] = ['code' => $item, 'display' => $item, 'active' => $active, 'synonyms' => []];
             }
         } elseif ($type == 'bar') {
@@ -524,6 +571,11 @@ EOD;
                     $code = substr($code, 1);  // remove leading !
                     $active = false;
                 }
+                // BREAKING CHANGE (see README): see the 'list' branch above -
+                // same reasoning, scoped to the code only (not the display
+                // text or synonyms, which are free-form and not compared
+                // against anything).
+                $code = trim($code);
                 $display = array_pop($col_rev);
                 $values[] = [
                     'code' => $code,
@@ -541,7 +593,12 @@ EOD;
                     if (isset($item['code']) and isset($item['display'])) {
                         // 'active' and 'synonyms' are documented as optional
                         $values[] = [
-                            'code' => $item['code'],
+                            // BREAKING CHANGE (see README): same reasoning as
+                            // the 'list'/'bar' branches above. Guarded with
+                            // is_string() since JSON permits a non-string
+                            // code (e.g. a bare number) - trim() would raise
+                            // a deprecation notice on anything else in PHP 8.1+.
+                            'code' => is_string($item['code']) ? trim($item['code']) : $item['code'],
                             'display' => $item['display'],
                             'active' => isset($item['active']) ? $item['active'] : true,
                             'synonyms' => isset($item['synonyms']) ? $item['synonyms'] : [],

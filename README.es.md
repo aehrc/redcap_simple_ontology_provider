@@ -26,6 +26,13 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
  * `Tipo de búsqueda` - Este menú desplegable se utiliza para seleccionar el algortimo de búsqueda que se quiere utilizar. Las opciones son:
     * `Basado en palabras` - Este es el mecanismo de búsqueda introducido en la versión 0.3 en el cual cada palabra se busca por separado.
     * `Texto completo` - La búsqueda se realiza usando el texto completo sin ningún comportamiento especial para las palabras.
+ * `Devolver todos los valores` - Navegar una categoría corta y completamente enumerada sin necesidad de adivinar
+   su redacción exacta de búsqueda, en lugar de requerir que el texto ingresado coincida realmente. Ver
+   [Devolver todos los valores sin importar el texto de búsqueda](#devolver-todos-los-valores-sin-importar-el-texto-de-búsqueda)
+   más abajo para la explicación completa, incluyendo su interacción con `Return 'No Results Found'`.
+ * `Códigos prioritarios` - Un código por línea; una entrada coincidente cuyo código aparezca aquí se ordena al
+   principio de los resultados de esa categoría, en el orden indicado. Ver [Códigos prioritarios](#códigos-prioritarios)
+   más abajo para la explicación completa.
  * `Avisar cuando no hay resultado 'Sin resultado'` - Esta casilla se usa para indicar que debe retornar un valor especial si la búsqueda no obtiene resultados.
  El propósito de esto es permitir que se seleccione la opción y luego activar un campo adicional a través de lógica de ramificación para recibir datos adicionales.
  También se puede usar para seleccionar un valor predeterminado.
@@ -178,6 +185,39 @@ que el límite de resultados del campo, no solo cuando no hay ninguno (ver más 
 y completamente enumerada, que es exactamente para lo que sirve `Return all values`, esto significa que su valor
 de reemplazo normalmente aparecerá junto con los resultados reales de cada búsqueda, no solo cuando no coincida
 nada. Marcar ambas opciones en la misma categoría probablemente no logre lo que se busca.
+
+### Códigos prioritarios
+**Códigos prioritarios** (un código por línea) ordena una entrada coincidente al principio de los resultados de
+búsqueda de esa categoría, por delante de cualquier otra coincidencia, en el orden en que se listan los códigos -
+útil para destacar los valores más elegidos de una categoría incluso cuando varias entradas coinciden igual de
+bien con el texto ingresado. Solo se considera el código, no el texto de visualización ni los sinónimos.
+
+Los códigos prioritarios solo reordenan entre las entradas que ya califican para esa búsqueda - incluir un código
+aquí no hace, por sí solo, que aparezca. Sin `Return all values`, una entrada todavía debe coincidir realmente con
+el texto ingresado; con `Return all values` activado, aparece igual que cualquier otra entrada sin coincidencia,
+solo que ordenada al frente si también está listada como código prioritario.
+
+A diferencia de los códigos prioritarios de `advanced_fhir_ontology_provider` y `redcap_fhir_ontology_provider`,
+aquí no hay una opción de "captura adicional" que configurar: esos módulos solo reciben un subconjunto de
+resultados de un servidor FHIR externo, por lo que un código prioritario necesita margen adicional para tener
+alguna posibilidad de ser incluido. Los valores de este módulo son siempre locales y ya están todos disponibles,
+así que los códigos prioritarios aquí son simplemente un reordenamiento del conjunto completo - no hay nada que
+ajustar.
+
+- ***CAMBIO IMPORTANTE: ahora se recorta el espacio en blanco al inicio/final de un código*** - Antes de los
+  códigos prioritarios, el espacio en blanco de un código nunca se comparaba con nada más - se aceptaba y se usaba
+  de manera consistente en todos los lugares donde importaba (como el valor almacenado del campo, y como clave de
+  búsqueda de su propia etiqueta), por lo que un espacio incidental al inicio o al final de un código (fácil de
+  introducir al pegar desde una hoja de cálculo, por ejemplo `C1 |Semanal`) era inofensivo. `Códigos prioritarios`
+  y `@HIDECHOICE` son lo primero que necesita que un código escrito en una configuración coincida con un código
+  extraído de una lista de `Valores` completamente distinta, y es ahí donde una diferencia accidental de espacios
+  entre ambos impide silenciosamente la coincidencia. Los códigos de `Valores` para los tres formatos (`list`,
+  `bar`, `json`) ahora se recortan, para que esa comparación cruzada sea confiable.
+  **Si alguna categoría existente tiene un código con ese espacio en blanco incidental en sus `Valores`, y un
+  registro ya almacenó ese valor literal sin recortar**, ese registro mostrará su valor almacenado sin procesar en
+  lugar de la etiqueta configurada después de actualizar (la búsqueda de código a etiqueta ahora usa como clave el
+  código recortado). Si depende de códigos que incluyen deliberadamente espacios al inicio o al final, revise los
+  `Valores` de sus categorías antes de actualizar.
 
 ## Soporte de @HIDECHOICE
 

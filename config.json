@@ -72,6 +72,18 @@
 				"name": "Browse a short, fully-enumerated category without needing to guess its exact search wording. The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
 				"type": "descriptive"
 			},
+			{
+				"key": "site-priority-codes",
+                "tt_name": "site_priority_codes",
+				"name": "Priority Codes",
+				"type": "textarea"
+			},
+			{
+				"key": "site-priority-codes-info",
+				"tt_name": "site_priority_codes_info",
+				"name": "One code per line. A matching entry whose code is listed here sorts to the top of that category's results, in the order listed, ahead of any other match. Only the code is considered, not the display text or synonyms.",
+				"type": "descriptive"
+			},
            {
 				"key": "site-return-no-result",
                 "tt_name": "site_return_no_result",
@@ -156,6 +168,18 @@
 				"key" : "project-return-all-info",
 				"tt_name" : "project_return_all_info",
 				"name" : "Browse a short, fully-enumerated category without needing to guess its exact search wording. The Return No Results Found setting below triggers whenever the result count is below the field's result limit, not just when there are none - for a short, fully-enumerated category (return-all's own use case), this means its fallback value will typically appear alongside every search's results, not only when nothing matches.",
+				"type" : "descriptive"
+			},
+			{
+				"key" : "project-priority-codes",
+                "tt_name" : "project_priority_codes",
+				"name" : "Priority Codes",
+				"type" : "textarea"
+			},
+			{
+				"key" : "project-priority-codes-info",
+				"tt_name" : "project_priority_codes_info",
+				"name" : "One code per line. A matching entry whose code is listed here sorts to the top of that category's results, in the order listed, ahead of any other match. Only the code is considered, not the display text or synonyms.",
 				"type" : "descriptive"
 			},
             {
