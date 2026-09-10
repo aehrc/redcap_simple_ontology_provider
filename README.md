@@ -200,6 +200,18 @@ server, so a priority code needs extra headroom to have a chance of being includ
 are always fully local and already all available, so priority-codes here is a pure re-sort of the complete set -
 nothing to tune.
 
+- ***BREAKING: a code's leading/trailing whitespace is now trimmed*** - Building priority-codes surfaced a real bug:
+  a `Values` entry with an incidental leading/trailing space around its code (easy to introduce pasting from a
+  spreadsheet, e.g. `C1 |Weekly`) silently failed to match against `Priority Codes` and `@HIDECHOICE`'s own
+  comma-separated lists, since both compare the code with a strict, whitespace-sensitive check. `Values` codes for
+  all three formats (`list`, `bar`, `json`) are now trimmed before being used as the field's stored value or
+  compared against anything.
+  **If any existing category's `Values` happens to have a code with such incidental whitespace, and a record has
+  already stored that literal untrimmed value**, that record will show its raw stored value instead of the
+  configured label after upgrading (the code-to-label lookup is now keyed by the trimmed code). This should be
+  rare in practice - such whitespace was never intentional to begin with - but if you rely on codes that
+  deliberately include leading/trailing whitespace, review your categories' `Values` before upgrading.
+
 ## @HIDECHOICE support
 As part of the 0.5 release extra functionality has been added to this module for it to consider the `@HIDECHOICE`
 action tag. This action tag is available for choice fields to indicate a choice should not be shown. This

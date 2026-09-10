@@ -546,6 +546,12 @@ EOD;
                     $item = substr($item, 1);  // remove leading !
                     $active = false;
                 }
+                // BREAKING CHANGE (see README): trimmed so an incidental
+                // leading/trailing space (e.g. pasted from a spreadsheet)
+                // can't silently break @HIDECHOICE/priority-codes matching,
+                // which compare against this code with a strict, whitespace-
+                // sensitive check.
+                $item = trim($item);
                 $values[] = ['code' => $item, 'display' => $item, 'active' => $active, 'synonyms' => []];
             }
         } elseif ($type == 'bar') {
@@ -563,6 +569,11 @@ EOD;
                     $code = substr($code, 1);  // remove leading !
                     $active = false;
                 }
+                // BREAKING CHANGE (see README): see the 'list' branch above -
+                // same reasoning, scoped to the code only (not the display
+                // text or synonyms, which are free-form and not compared
+                // against anything).
+                $code = trim($code);
                 $display = array_pop($col_rev);
                 $values[] = [
                     'code' => $code,
@@ -580,7 +591,12 @@ EOD;
                     if (isset($item['code']) and isset($item['display'])) {
                         // 'active' and 'synonyms' are documented as optional
                         $values[] = [
-                            'code' => $item['code'],
+                            // BREAKING CHANGE (see README): same reasoning as
+                            // the 'list'/'bar' branches above. Guarded with
+                            // is_string() since JSON permits a non-string
+                            // code (e.g. a bare number) - trim() would raise
+                            // a deprecation notice on anything else in PHP 8.1+.
+                            'code' => is_string($item['code']) ? trim($item['code']) : $item['code'],
                             'display' => $item['display'],
                             'active' => isset($item['active']) ? $item['active'] : true,
                             'synonyms' => isset($item['synonyms']) ? $item['synonyms'] : [],

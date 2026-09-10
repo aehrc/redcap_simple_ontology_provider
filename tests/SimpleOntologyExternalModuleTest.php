@@ -260,6 +260,27 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->assertSame(['C1'], array_keys($results));
     }
 
+    public function testSearchOntologyPriorityCodesMatchDespiteIncidentalWhitespaceInValues(): void
+    {
+        // BREAKING CHANGE regression: a code with a stray leading/trailing
+        // space (easy to introduce pasting from a spreadsheet) used to be
+        // stored and compared verbatim, silently breaking priority-codes'
+        // (and @HIDECHOICE's) strict match against a cleanly-typed code list.
+        // parseCategoryValues() now trims the code.
+        $this->module->subSettings['site-category-list'] = [$this->siteCategory([
+            'site-values-type' => 'bar',
+            'site-values' => " C1 |Weekly\nC2|Monthly",
+            'site-return-all' => true,
+            'site-priority-codes' => "C1",
+        ])];
+
+        // C2 matches "month"; C1 does not - it must still sort first, and
+        // its stored/returned code must be the trimmed "C1", not " C1 ".
+        $results = $this->module->searchOntology('test-cat', 'month', 20);
+
+        $this->assertSame(['C1', 'C2'], array_keys($results));
+    }
+
     public function testSearchOntologyFiltersInactiveEntries(): void
     {
         $this->module->subSettings['site-category-list'] = [$this->siteCategory([
