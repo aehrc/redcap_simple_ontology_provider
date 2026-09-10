@@ -186,18 +186,19 @@ alguna posibilidad de ser incluido. Los valores de este módulo son siempre loca
 así que los códigos prioritarios aquí son simplemente un reordenamiento del conjunto completo - no hay nada que
 ajustar.
 
-- ***CAMBIO IMPORTANTE: ahora se recorta el espacio en blanco al inicio/final de un código*** - Al construir los
-  códigos prioritarios se descubrió un error real: una entrada de `Valores` con un espacio incidental al inicio o
-  al final de su código (fácil de introducir al pegar desde una hoja de cálculo, por ejemplo `C1 |Semanal`) no
-  coincidía silenciosamente con las listas de `Códigos prioritarios` y `@HIDECHOICE`, separadas por comas, ya que
-  ambas comparan el código con una verificación estricta y sensible a los espacios. Los códigos de `Valores` para
-  los tres formatos (`list`, `bar`, `json`) ahora se recortan antes de usarse como el valor almacenado del campo o
-  de compararse con cualquier otra cosa.
+- ***CAMBIO IMPORTANTE: ahora se recorta el espacio en blanco al inicio/final de un código*** - Antes de los
+  códigos prioritarios, el espacio en blanco de un código nunca se comparaba con nada más - se aceptaba y se usaba
+  de manera consistente en todos los lugares donde importaba (como el valor almacenado del campo, y como clave de
+  búsqueda de su propia etiqueta), por lo que un espacio incidental al inicio o al final de un código (fácil de
+  introducir al pegar desde una hoja de cálculo, por ejemplo `C1 |Semanal`) era inofensivo. `Códigos prioritarios`
+  y `@HIDECHOICE` son lo primero que necesita que un código escrito en una configuración coincida con un código
+  extraído de una lista de `Valores` completamente distinta, y es ahí donde una diferencia accidental de espacios
+  entre ambos impide silenciosamente la coincidencia. Los códigos de `Valores` para los tres formatos (`list`,
+  `bar`, `json`) ahora se recortan, para que esa comparación cruzada sea confiable.
   **Si alguna categoría existente tiene un código con ese espacio en blanco incidental en sus `Valores`, y un
   registro ya almacenó ese valor literal sin recortar**, ese registro mostrará su valor almacenado sin procesar en
   lugar de la etiqueta configurada después de actualizar (la búsqueda de código a etiqueta ahora usa como clave el
-  código recortado). Esto debería ser poco común en la práctica - dicho espacio en blanco nunca fue intencional en
-  primer lugar - pero si depende de códigos que incluyen deliberadamente espacios al inicio o al final, revise los
+  código recortado). Si depende de códigos que incluyen deliberadamente espacios al inicio o al final, revise los
   `Valores` de sus categorías antes de actualizar.
 
 ## Soporte de @HIDECHOICE

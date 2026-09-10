@@ -548,9 +548,11 @@ EOD;
                 }
                 // BREAKING CHANGE (see README): trimmed so an incidental
                 // leading/trailing space (e.g. pasted from a spreadsheet)
-                // can't silently break @HIDECHOICE/priority-codes matching,
-                // which compare against this code with a strict, whitespace-
-                // sensitive check.
+                // can't silently break @HIDECHOICE/priority-codes matching -
+                // both compare a code typed into a separate setting against
+                // this one with a strict, whitespace-sensitive check, which
+                // is the first time this code's own whitespace is ever
+                // compared against anything else.
                 $item = trim($item);
                 $values[] = ['code' => $item, 'display' => $item, 'active' => $active, 'synonyms' => []];
             }
