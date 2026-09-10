@@ -1,11 +1,20 @@
 # Módulo Externo de Ontología Simple
 
 Este módulo externo de REDCap permite definir un conjunto personalizado de ‘ontologías’ que se puede utilizar para 
-proveer funcionalidad de autocompletar un campo de texto. Las ontologías se pueden definir a nivel de sitio o proyecto 
+proveer funcionalidad de autocompletar un campo de texto, sin necesitar un servidor externo: cada ontología es una
+lista estática de pares código/descripción (con sinónimos opcionales) ingresada directamente en la configuración
+del módulo. Las ontologías se pueden definir a nivel de sitio o proyecto 
 y se puede especificar un valor por defecto que se debe desplegar si no se encuentran resultados. Desde la version 0.4, 
 se agregó una opción para intercambiar entre búsqueda por palabras y búsqueda por el texto completo. 
 
 La versión 0.5 introduce soporte para sinónimos y marcando entradas como inactivas.
+
+Para un registro más breve, generado automáticamente commit por commit, ver [CHANGELOG.md](./CHANGELOG.md) (en inglés).
+
+## Requisitos
+
+- PHP 8.0.0 o posterior
+- REDCap 8.8.1 o posterior, en el framework de Módulos Externos versión 16 o posterior
 
 La licencia de este módulo se encuentra bajo el Acuerdo de Licencia de Código Abierto de CSIRO (una variación de la licencia BSD/MIT).
 
@@ -15,7 +24,7 @@ Este módulo externo es un ejemplo muy sencillo que demuestra la funcionalidad a
 ## Configuración del módulo
 Opción predeterminada: descargue el módulo desde el Repositorio de módulos externos de REDCap
 
-Opción 2: descargue el módulo de Github y colóquelo descomprimido en la carpeta de módulos, por ej., redcap/modules/simple_ontology_provider_v0.5. El módulo se volverá visible en REDCap, dentro de los Módulos Externos, para que lo pueda habilitar y acceder a notificaciones cuando hay actualizaciones disponibles.
+Opción 2: descargue el módulo de Github y colóquelo descomprimido en la carpeta de módulos, en un directorio nombrado según la versión descargada, por ej., redcap/modules/simple_ontology_provider_v1.0.0. El módulo se volverá visible en REDCap, dentro de los Módulos Externos, para que lo pueda habilitar y acceder a notificaciones cuando hay actualizaciones disponibles.
 
 La configuración se usa para seleccionar las ontologías que usará localmente. Si la ontología se añade en la configuración del Centro de Control estará disponible en todos los proyectos. Las ontologías específicas para el proyecto se añaden como ajustes del proyecto para el módulo. Si coloca la misma ontología en los módulos externos del centro de control y del proyecto, usará la del proyecto.
 
@@ -223,7 +232,7 @@ ajustar.
 
 ## Soporte de @HIDECHOICE
 
-Parte de la funcionalidad que se ah adicionado a este módulo es soportar la etiqueta de acción (action tag) @HIDECHOICE. 
+El soporte para la etiqueta de acción (action tag) `@HIDECHOICE` fue agregado a este módulo en la versión 0.5.
 Esta etiqueta está disponible para los campos de selección para indicar que una opción no debe ser mostrada. Esto se 
 puede lograr de manera global en este módulo utilizando la bandera active para marcar un código como inactivo. 
 La etiqueta @HIDECHOICE, sin embargo, se especifica a nivel de campo. El valor solo se dejará de mostrar para el campo 
@@ -409,6 +418,4 @@ En el módulo externo añada:
  public function redcap_every_page_before_render ( $project_id ){
   }
 ```
-Traducido: 2020-07-31 para la v0.4
-
 
