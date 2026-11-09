@@ -41,6 +41,21 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
      */
     private $categoriesBeforeSave = null;
 
+    /**
+     * Categories flagged as possibly needing a cache refresh, one list per
+     * scope. The keys must differ: the framework's getProjectSetting() falls
+     * back to the system value of the same key when a project has none, so
+     * when both scopes used 'cache-refresh-pending' the site-level reminder
+     * showed in every project without a list of its own. The site list moved
+     * to its own key (see migrateLegacySystemPending()); project lists stay
+     * where they were.
+     */
+    const SYSTEM_CACHE_REFRESH_PENDING = 'system-cache-refresh-pending';
+    const PROJECT_CACHE_REFRESH_PENDING = 'cache-refresh-pending';
+
+    /** Set once this request has checked for the legacy site row - see migrateLegacySystemPending(). */
+    private $legacySystemPendingChecked = false;
+
     public function __construct()
     {
         parent::__construct();
@@ -1127,9 +1142,23 @@ EOD;
      */
     public function getCacheRefreshPending($projectId)
     {
-        $raw = $projectId ? $this->getProjectSetting('cache-refresh-pending') : $this->getSystemSetting('cache-refresh-pending');
-        $list = json_decode((string)$raw, true);
-        return is_array($list) ? $list : [];
+        // Before any project read: an old site row under the project key
+        // would otherwise be read through the framework's fallback.
+        $this->migrateLegacySystemPending();
+        if (!$projectId) {
+            $list = json_decode((string)$this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING), true);
+            return is_array($list) ? $list : [];
+        }
+
+        $list = json_decode((string)$this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId), true);
+        if (!is_array($list)) {
+            return [];
+        }
+        // Only the project's own categories: anything else can't be refreshed
+        // from the project page, and includes site names the old shared-key
+        // fallback copied into project rows.
+        $projectCategoryNames = array_column($this->getProjectCategories($projectId), 'category');
+        return array_values(array_intersect($list, $projectCategoryNames));
     }
 
     private function setCacheRefreshPending($projectId, array $categories)
@@ -1137,10 +1166,41 @@ EOD;
         $categories = array_values(array_unique($categories));
         $value = empty($categories) ? null : json_encode($categories);
         if ($projectId) {
-            $this->setProjectSetting('cache-refresh-pending', $value);
+            $this->setProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $value, $projectId);
         } else {
-            $this->setSystemSetting('cache-refresh-pending', $value);
+            $this->setSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $value);
         }
+    }
+
+    /**
+     * Move a site list saved before the key split (the system row under
+     * 'cache-refresh-pending', now the project key) to its own key. Based on
+     * what's stored rather than an upgrade hook, as the framework docs advise;
+     * once moved, this is one system-setting read per request. The new key is
+     * written before the old row is removed, so a failed write is retried.
+     */
+    private function migrateLegacySystemPending()
+    {
+        if ($this->legacySystemPendingChecked) {
+            return;
+        }
+        $this->legacySystemPendingChecked = true;
+
+        $legacyRaw = $this->getSystemSetting(self::PROJECT_CACHE_REFRESH_PENDING);
+        if ($legacyRaw === null) {
+            return;
+        }
+        // The first read can come from a module page (the project refresh
+        // page), where the framework's user-based setting permissions are on
+        // and a non-superuser may not write system settings. Hooks, ajax and
+        // the API already run with them off; who may open the page is decided
+        // by redcap_module_link_check_display().
+        $this->disableUserBasedSettingPermissions();
+        $legacy = json_decode((string)$legacyRaw, true);
+        $current = json_decode((string)$this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING), true);
+        $merged = array_merge(is_array($current) ? $current : [], is_array($legacy) ? $legacy : []);
+        $this->setCacheRefreshPending(null, $merged);
+        $this->removeSystemSetting(self::PROJECT_CACHE_REFRESH_PENDING);
     }
 
     private function clearCacheRefreshPending($projectId, $category)

@@ -28,8 +28,11 @@ namespace ExternalModules {
          */
         public array $projectSubSettingsByProject = [];
 
-        /** @var array<string, mixed> project-scoped module settings, keyed by setting key */
+        /** @var array<string, mixed> project-scoped module settings for the ambient project, keyed by setting key */
         public array $projectSettings = [];
+
+        /** @var array<string, array<string, mixed>> project-scoped settings for projects OTHER than the ambient one, keyed by project id then setting key */
+        public array $projectSettingsByProject = [];
 
         /** @var array<string, mixed> system-scoped module settings, keyed by setting key */
         public array $systemSettings = [];
@@ -98,14 +101,40 @@ namespace ExternalModules {
             return 'FAKE.Js.ModuleObject';
         }
 
+        /** Like the real framework, falls back to the system-level value of
+         *  the same key when the project has none of its own. */
         public function getProjectSetting($key, $project_id = null)
         {
-            return $this->projectSettings[$key] ?? null;
+            $own = &$this->projectSettingsFor($project_id);
+            return $own[$key] ?? $this->systemSettings[$key] ?? null;
         }
 
+        /** Like the real framework, setting null deletes the row. */
         public function setProjectSetting($key, $value, $project_id = null)
         {
-            $this->projectSettings[$key] = $value;
+            $own = &$this->projectSettingsFor($project_id);
+            if ($value === null) {
+                unset($own[$key]);
+            } else {
+                $own[$key] = $value;
+            }
+        }
+
+        /** Like the real framework, a project setting needs a project: an
+         *  explicit id, or the ambient one. Unset, it throws. */
+        private function &projectSettingsFor($project_id)
+        {
+            $effectiveProjectId = $project_id !== null ? $project_id : $this->currentProjectId;
+            if (empty($effectiveProjectId)) {
+                throw new \Exception('The Project Id cannot be null!');
+            }
+            if ($project_id === null || (string)$project_id === (string)$this->currentProjectId) {
+                return $this->projectSettings;
+            }
+            if (!isset($this->projectSettingsByProject[$project_id])) {
+                $this->projectSettingsByProject[$project_id] = [];
+            }
+            return $this->projectSettingsByProject[$project_id];
         }
 
         public function getSystemSetting($key)
@@ -113,9 +142,40 @@ namespace ExternalModules {
             return $this->systemSettings[$key] ?? null;
         }
 
+        /**
+         * The framework's user-based setting permissions: off inside hooks,
+         * ajax and API calls (this fake's default), on for module pages. While
+         * on, a non-superuser can't write system settings.
+         */
+        public bool $userBasedSettingPermissions = false;
+
+        public function disableUserBasedSettingPermissions()
+        {
+            $this->userBasedSettingPermissions = false;
+        }
+
+        private function ensureSystemSettingWriteAllowed()
+        {
+            if ($this->userBasedSettingPermissions && !ExternalModules::$isSuperUser) {
+                throw new \Exception("You don't have permission to save system settings!");
+            }
+        }
+
+        /** Like the real framework, setting null deletes the row. */
         public function setSystemSetting($key, $value)
         {
-            $this->systemSettings[$key] = $value;
+            $this->ensureSystemSettingWriteAllowed();
+            if ($value === null) {
+                unset($this->systemSettings[$key]);
+            } else {
+                $this->systemSettings[$key] = $value;
+            }
+        }
+
+        public function removeSystemSetting($key)
+        {
+            $this->ensureSystemSettingWriteAllowed();
+            unset($this->systemSettings[$key]);
         }
 
         public function log($message, $parameters = [])
