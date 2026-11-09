@@ -13,7 +13,6 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         \OntologyManager::resetForTests();
         \ExternalModules\ExternalModules::resetForTests();
         $this->module = new SimpleOntologyExternalModule();
-        \ExternalModules\ExternalModules::$settingsModule = $this->module;
         // Every normal field-rendering/search/settings-save entry point this
         // module exposes runs inside an actual project (a field can't exist
         // outside one) - default the fake's ambient project context to
@@ -877,7 +876,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
     public function testApplyCacheRefreshClearsPendingReminderForCategory(): void
     {
         $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
-        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat', 'other-cat']));
+        $this->module->setProjectSetting('project-cache-refresh-pending', json_encode(['test-cat', 'other-cat']));
 
         $this->module->applyCacheRefresh('test-cat', '42', []);
 
@@ -886,7 +885,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
 
     public function testConfigurationSettingsInjectsReminderWhenCategoryPending(): void
     {
-        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+        $this->module->setProjectSetting('project-cache-refresh-pending', json_encode(['test-cat']));
 
         $settings = $this->module->redcap_module_configuration_settings('42', [
             ['key' => 'project-category-list', 'name' => 'List of Ontologies for the project'],
@@ -918,10 +917,18 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->assertSame($original, $this->module->redcap_module_configuration_settings('42', $original));
     }
 
+    /** Rows left under the old shared key may be copies of the site list. */
+    public function testProjectPendingIgnoresLegacySharedKeyRow(): void
+    {
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['site-cat']));
+
+        $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+    }
+
     public function testProjectPendingStillReadWhenSiteLevelPendingAlsoSet(): void
     {
         $this->module->setSystemSetting('cache-refresh-pending', json_encode(['site-cat']));
-        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+        $this->module->setProjectSetting('project-cache-refresh-pending', json_encode(['test-cat']));
 
         $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending('42'));
     }
@@ -1015,7 +1022,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
     public function testConfigurationSettingsDoesNotInjectBannerWhenCacheRefreshDisabledEvenWithPendingFlag(): void
     {
         $this->module->systemSettings['disable-cache-refresh'] = true;
-        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+        $this->module->setProjectSetting('project-cache-refresh-pending', json_encode(['test-cat']));
         $original = [['key' => 'project-category-list', 'name' => 'List of Ontologies for the project']];
 
         $settings = $this->module->redcap_module_configuration_settings('42', $original);
@@ -1057,7 +1064,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
     public function testSaveConfigurationPrunesPendingCategoryThatNoLongerExists(): void
     {
         $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
-        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat', 'renamed-away']));
+        $this->module->setProjectSetting('project-cache-refresh-pending', json_encode(['test-cat', 'renamed-away']));
 
         $this->module->validateSettings($this->settingsPayload([], [
             'category' => ['test-cat'], 'name' => ['Test Category'], 'return-no-result' => [false],
@@ -1079,7 +1086,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
             $this->cacheRow('42', 'test-cat', 'C1', 'Old One'),
             $this->cacheRow('42', 'test-cat', 'C2', 'Old Two'),
         ];
-        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+        $this->module->setProjectSetting('project-cache-refresh-pending', json_encode(['test-cat']));
 
         // Only C1 confirmed; C2 is still genuinely stale.
         $this->module->applyCacheRefresh('test-cat', '42', [
@@ -1098,7 +1105,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
             $this->cacheRow('42', 'test-cat', 'C1', 'Old One'),
             $this->cacheRow('42', 'test-cat', 'C2', 'Old Two'),
         ];
-        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+        $this->module->setProjectSetting('project-cache-refresh-pending', json_encode(['test-cat']));
 
         $this->module->applyCacheRefresh('test-cat', '42', [
             ['project_id' => '42', 'value' => 'C1'],

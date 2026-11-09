@@ -41,6 +41,18 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
      */
     private $categoriesBeforeSave = null;
 
+    /**
+     * Categories flagged as possibly needing a cache refresh, one list per
+     * scope. The keys must differ: the framework's getProjectSetting() falls
+     * back to the system value of the same key when a project has none, so a
+     * shared key showed the site-level reminder in every project. Before the
+     * split both scopes used 'cache-refresh-pending'; any project rows still
+     * under that key (possibly copies of the site list made through that
+     * fallback) are deliberately left unread.
+     */
+    const SYSTEM_CACHE_REFRESH_PENDING = 'cache-refresh-pending';
+    const PROJECT_CACHE_REFRESH_PENDING = 'project-cache-refresh-pending';
+
     public function __construct()
     {
         parent::__construct();
@@ -1127,12 +1139,9 @@ EOD;
      */
     public function getCacheRefreshPending($projectId)
     {
-        // Not getProjectSetting(): the framework falls back to the system
-        // value of the same key when the project has none, which would show
-        // the site-level reminder in every project without its own.
         $raw = $projectId
-            ? (ExternalModules::getProjectSettingsAsArray($this->PREFIX, $projectId, false)['cache-refresh-pending']['value'] ?? null)
-            : $this->getSystemSetting('cache-refresh-pending');
+            ? $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING)
+            : $this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING);
         $list = json_decode((string)$raw, true);
         return is_array($list) ? $list : [];
     }
@@ -1142,9 +1151,9 @@ EOD;
         $categories = array_values(array_unique($categories));
         $value = empty($categories) ? null : json_encode($categories);
         if ($projectId) {
-            $this->setProjectSetting('cache-refresh-pending', $value);
+            $this->setProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $value);
         } else {
-            $this->setSystemSetting('cache-refresh-pending', $value);
+            $this->setSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $value);
         }
     }
 

@@ -236,40 +236,10 @@ namespace ExternalModules {
             return self::$moduleConfigurationUserRights[$prefix] ?? false;
         }
 
-        /** @var AbstractExternalModule|null the module whose settings getProjectSettingsAsArray() reads */
-        public static $settingsModule = null;
-
-        /**
-         * Real signature returns [key => ['value' => ..., 'system_value' => ...]]
-         * for the given project, plus system rows only when $includeSystemSettings
-         * is true. This fake is single-project, so it reads the registered module's
-         * project settings regardless of $projectId.
-         */
-        public static function getProjectSettingsAsArray($moduleDirectoryPrefixes, $projectId, $includeSystemSettings = true)
-        {
-            if (!$projectId) {
-                throw new \Exception('The Project Id cannot be null!');
-            }
-            $module = self::$settingsModule;
-            $settings = [];
-            if ($module !== null) {
-                if ($includeSystemSettings) {
-                    foreach ($module->systemSettings as $key => $value) {
-                        $settings[$key] = ['value' => $value, 'system_value' => $value];
-                    }
-                }
-                foreach ($module->projectSettings as $key => $value) {
-                    $settings[$key] = ['value' => $value] + ($settings[$key] ?? []);
-                }
-            }
-            return $settings;
-        }
-
         public static function resetForTests(): void
         {
             self::$isSuperUser = false;
             self::$moduleConfigurationUserRights = [];
-            self::$settingsModule = null;
             AbstractExternalModule::$webServiceCache = [];
             AbstractExternalModule::$logEntries = [];
         }
