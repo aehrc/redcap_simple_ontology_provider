@@ -13,6 +13,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         \OntologyManager::resetForTests();
         \ExternalModules\ExternalModules::resetForTests();
         $this->module = new SimpleOntologyExternalModule();
+        \ExternalModules\ExternalModules::$settingsModule = $this->module;
         // Every normal field-rendering/search/settings-save entry point this
         // module exposes runs inside an actual project (a field can't exist
         // outside one) - default the fake's ambient project context to
@@ -917,12 +918,42 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->assertSame($original, $this->module->redcap_module_configuration_settings('42', $original));
     }
 
-    /** Rows left under the old shared key may be copies of the site list. */
-    public function testProjectPendingIgnoresLegacySharedKeyRow(): void
+    /**
+     * Before the key split, a project's own list lived under the shared
+     * 'cache-refresh-pending' key. It's migrated on first read, keeping only
+     * names that are still project categories (a site category copied in
+     * through the old fallback is dropped), and the old row is removed.
+     */
+    public function testProjectPendingMigratesLegacySharedKeyRow(): void
     {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat', 'site-cat']), '42');
+
+        $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending('42'));
+
+        $own = \ExternalModules\ExternalModules::getProjectSettingsAsArray($this->module->PREFIX, '42', false);
+        $this->assertArrayNotHasKey('cache-refresh-pending', $own);
+        $this->assertSame(json_encode(['test-cat']), $own['project-cache-refresh-pending']['value']);
+    }
+
+    public function testProjectPendingLegacyRowWithNoProjectCategoriesLeft(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
         $this->module->setProjectSetting('cache-refresh-pending', json_encode(['site-cat']), '42');
 
         $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+        $this->assertSame([], \ExternalModules\ExternalModules::getProjectSettingsAsArray($this->module->PREFIX, '42', false));
+    }
+
+    /** A site-level row under the old key is the system list, not a project's to migrate. */
+    public function testSiteLevelPendingIsNotMigratedIntoProject(): void
+    {
+        $this->module->subSettings['project-category-list'] = [$this->projectCategory()];
+        $this->module->setSystemSetting('cache-refresh-pending', json_encode(['test-cat']));
+
+        $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+        $this->assertSame([], \ExternalModules\ExternalModules::getProjectSettingsAsArray($this->module->PREFIX, '42', false));
+        $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending(null));
     }
 
     public function testProjectPendingStillReadWhenSiteLevelPendingAlsoSet(): void

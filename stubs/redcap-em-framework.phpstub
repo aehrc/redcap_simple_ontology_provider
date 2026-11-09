@@ -22,6 +22,7 @@ namespace ExternalModules {
         public function getProjectId() {}
         public function getProjectSetting($key, $project_id = null) {}
         public function setProjectSetting($key, $value, $project_id = null) {}
+        public function removeProjectSetting($key, $project_id = null) {}
         public function getSystemSetting($key) {}
         public function setSystemSetting($key, $value) {}
         public function log($message, $parameters = []) {}
@@ -33,6 +34,7 @@ namespace ExternalModules {
 
     class ExternalModules {
         public static function hasModuleConfigurationUserRights($prefix) {}
+        public static function getProjectSettingsAsArray($moduleDirectoryPrefixes, $projectId, $includeSystemSettings = true) {}
         public static function isSuperUser() {}
     }
 }

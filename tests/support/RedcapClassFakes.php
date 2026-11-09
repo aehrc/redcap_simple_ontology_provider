@@ -109,10 +109,28 @@ namespace ExternalModules {
             return $own[$key] ?? $this->systemSettings[$key] ?? null;
         }
 
+        /** Like the real framework, setting null deletes the row. */
         public function setProjectSetting($key, $value, $project_id = null)
         {
             $own = &$this->projectSettingsFor($project_id);
-            $own[$key] = $value;
+            if ($value === null) {
+                unset($own[$key]);
+            } else {
+                $own[$key] = $value;
+            }
+        }
+
+        public function removeProjectSetting($key, $project_id = null)
+        {
+            $own = &$this->projectSettingsFor($project_id);
+            unset($own[$key]);
+        }
+
+        /** The project's own settings only, with no system fallback - backs
+         *  the ExternalModules::getProjectSettingsAsArray() fake. */
+        public function projectOwnSettings($project_id)
+        {
+            return $this->projectSettingsFor($project_id);
         }
 
         /** Like the real framework, a project setting needs a project: an
@@ -258,10 +276,37 @@ namespace ExternalModules {
             return self::$moduleConfigurationUserRights[$prefix] ?? false;
         }
 
+        /** @var AbstractExternalModule|null the module whose settings getProjectSettingsAsArray() reads */
+        public static $settingsModule = null;
+
+        /** Real return shape is [key => ['value' => ..., 'system_value' => ...]];
+         *  system rows are only included when $includeSystemSettings is true. */
+        public static function getProjectSettingsAsArray($moduleDirectoryPrefixes, $projectId, $includeSystemSettings = true)
+        {
+            if (!$projectId) {
+                throw new \Exception('The Project Id cannot be null!');
+            }
+            $module = self::$settingsModule;
+            $settings = [];
+            if ($module === null || $moduleDirectoryPrefixes !== $module->PREFIX) {
+                return $settings;
+            }
+            if ($includeSystemSettings) {
+                foreach ($module->systemSettings as $key => $value) {
+                    $settings[$key] = ['value' => $value, 'system_value' => $value];
+                }
+            }
+            foreach ($module->projectOwnSettings($projectId) as $key => $value) {
+                $settings[$key] = ['value' => $value] + ($settings[$key] ?? []);
+            }
+            return $settings;
+        }
+
         public static function resetForTests(): void
         {
             self::$isSuperUser = false;
             self::$moduleConfigurationUserRights = [];
+            self::$settingsModule = null;
             AbstractExternalModule::$webServiceCache = [];
             AbstractExternalModule::$logEntries = [];
         }

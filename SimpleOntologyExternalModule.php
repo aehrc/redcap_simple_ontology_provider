@@ -46,9 +46,9 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
      * scope. The keys must differ: the framework's getProjectSetting() falls
      * back to the system value of the same key when a project has none, so a
      * shared key showed the site-level reminder in every project. Before the
-     * split both scopes used 'cache-refresh-pending'; any project rows still
-     * under that key (possibly copies of the site list made through that
-     * fallback) are deliberately left unread.
+     * split both scopes used 'cache-refresh-pending'; a project row still
+     * under that key is migrated on first read - see
+     * migrateLegacyProjectPending().
      */
     const SYSTEM_CACHE_REFRESH_PENDING = 'cache-refresh-pending';
     const PROJECT_CACHE_REFRESH_PENDING = 'project-cache-refresh-pending';
@@ -1139,11 +1139,48 @@ EOD;
      */
     public function getCacheRefreshPending($projectId)
     {
-        $raw = $projectId
-            ? $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId)
-            : $this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING);
+        if ($projectId) {
+            $raw = $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId);
+            if ($raw === null) {
+                $raw = $this->migrateLegacyProjectPending($projectId);
+            }
+        } else {
+            $raw = $this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING);
+        }
         $list = json_decode((string)$raw, true);
         return is_array($list) ? $list : [];
+    }
+
+    /**
+     * Move a project's pending list saved before the key split (under the
+     * shared 'cache-refresh-pending' key) to its own key, and remove the old
+     * row. Only names that are still project categories are kept: the old
+     * framework fallback could copy site-level entries into a project's row,
+     * and a name that isn't a project category is one of those (or gone).
+     *
+     * @return string|null the migrated value, as getProjectSetting() would return it
+     */
+    private function migrateLegacyProjectPending($projectId)
+    {
+        // Cheap check first. getProjectSetting() falls back to the site
+        // value, so null here means neither a project nor a site row exists.
+        if ($this->getProjectSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $projectId) === null) {
+            return null;
+        }
+        // Then the project's own row only, without the site fallback.
+        $ownSettings = ExternalModules::getProjectSettingsAsArray($this->PREFIX, $projectId, false);
+        $legacyRaw = $ownSettings[self::SYSTEM_CACHE_REFRESH_PENDING]['value'] ?? null;
+        if ($legacyRaw === null) {
+            return null;
+        }
+
+        $legacy = json_decode((string)$legacyRaw, true);
+        $projectCategoryNames = array_column($this->getProjectCategories($projectId), 'category');
+        $kept = is_array($legacy) ? array_values(array_intersect($legacy, $projectCategoryNames)) : [];
+
+        $this->removeProjectSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $projectId);
+        $this->setCacheRefreshPending($projectId, $kept);
+        return empty($kept) ? null : json_encode(array_values(array_unique($kept)));
     }
 
     private function setCacheRefreshPending($projectId, array $categories)
