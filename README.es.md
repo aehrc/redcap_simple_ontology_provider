@@ -38,15 +38,17 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
  * `Devolver todos los valores` - Navegar una categoría corta y completamente enumerada sin necesidad de adivinar
    su redacción exacta de búsqueda, en lugar de requerir que el texto ingresado coincida realmente. Ver
    [Devolver todos los valores sin importar el texto de búsqueda](#devolver-todos-los-valores-sin-importar-el-texto-de-búsqueda)
-   más abajo para la explicación completa, incluyendo su interacción con `Return 'No Results Found'`.
+   más abajo para la explicación completa, incluyendo su interacción con `Avisar cuando no hay resultado 'Sin resultado'`.
  * `Códigos prioritarios` - Un código por línea; una entrada coincidente cuyo código aparezca aquí se ordena al
    principio de los resultados de esa categoría, en el orden indicado. Ver [Códigos prioritarios](#códigos-prioritarios)
    más abajo para la explicación completa.
  * `Avisar cuando no hay resultado 'Sin resultado'` - Esta casilla se usa para indicar que debe retornar un valor especial si la búsqueda no obtiene resultados.
  El propósito de esto es permitir que se seleccione la opción y luego activar un campo adicional a través de lógica de ramificación para recibir datos adicionales.
  También se puede usar para seleccionar un valor predeterminado.
- * `Mensaje cuando no hay resultado` - El valor a mostrar para el valor especial devuelto si se habilita la opción `Responder que no se hallaron resultados`.
- * `Código cuando no hay resultado` - El valor a mostrar para el valor especial devuelto si se habilita la opción `Responder que no se hallaron resultados`.
+ * `Mensaje cuando no hay resultado` - El valor a mostrar para el valor especial devuelto si se habilita la opción `Avisar cuando no hay resultado 'Sin resultado'`.
+   Obligatorio cuando esa opción está marcada (puede dejarse en blanco en caso contrario); no puede contener HTML.
+ * `Código cuando no hay resultado` - El código del valor especial devuelto si se habilita la opción `Avisar cuando no hay resultado 'Sin resultado'`.
+   Obligatorio cuando esa opción está marcada (puede dejarse en blanco en caso contrario); no puede contener HTML ni comillas.
  * `Opciones de valores` - Esto se usa para indicar cómo se presentarán los valores. Las opciones son:
     * `list` - Una lista de valores, separados por una línea nueva. El valor y la descripción son iguales.
     * `bar` - Una lista de códigos y descripciones usando '|' como separador. Cada uno está separado con una línea. OJO: la búsqueda se hace sobre la descripción, no sobre el código.
@@ -191,7 +193,7 @@ entrada activa y no oculta siempre se incluye en los resultados de esa categorí
 del campo), y las entradas que sí coinciden con el texto ingresado se siguen ordenando primero - solo cambia su
 orden relativo, no se agrega ni se quita nada de lo que una búsqueda normal ya habría mostrado.
 
-**Interacción con `Return 'No Results Found'`:** esa opción se activa cuando el número de resultados es menor
+**Interacción con `Avisar cuando no hay resultado 'Sin resultado'`:** esa opción se activa cuando el número de resultados es menor
 que el límite de resultados del campo, no solo cuando no hay ninguno (ver más abajo) - para una categoría corta
 y completamente enumerada, que es exactamente para lo que sirve `Return all values`, esto significa que su valor
 de reemplazo normalmente aparecerá junto con los resultados reales de cada búsqueda, no solo cuando no coincida
@@ -305,6 +307,10 @@ Ambas páginas funcionan igual: elija una categoría, revise las entradas cuya e
 coincide con lo que la categoría define actualmente (un código que ya no existe en la categoría se
 deja intacto, ya que no hay un valor correcto con el cual reemplazarlo), y luego aplique la
 corrección a las que confirme.
+
+La actualización solo cambia el texto que REDCap muestra para un código. Nunca cambia el código
+guardado en un registro, así que un registro cuyo código haya editado o eliminado desde entonces
+conserva ese código anterior - actualice esos registros usted mismo si necesitan el nuevo.
 
 ![Página Refresh Ontology Cache mostrando los cambios de etiqueta propuestos](SimpleOntologyCacheRefreshPreview.png)
 
