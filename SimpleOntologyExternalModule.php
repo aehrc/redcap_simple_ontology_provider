@@ -1127,7 +1127,12 @@ EOD;
      */
     public function getCacheRefreshPending($projectId)
     {
-        $raw = $projectId ? $this->getProjectSetting('cache-refresh-pending') : $this->getSystemSetting('cache-refresh-pending');
+        // Not getProjectSetting(): the framework falls back to the system
+        // value of the same key when the project has none, which would show
+        // the site-level reminder in every project without its own.
+        $raw = $projectId
+            ? (ExternalModules::getProjectSettingsAsArray($this->PREFIX, $projectId, false)['cache-refresh-pending']['value'] ?? null)
+            : $this->getSystemSetting('cache-refresh-pending');
         $list = json_decode((string)$raw, true);
         return is_array($list) ? $list : [];
     }

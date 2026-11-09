@@ -13,6 +13,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         \OntologyManager::resetForTests();
         \ExternalModules\ExternalModules::resetForTests();
         $this->module = new SimpleOntologyExternalModule();
+        \ExternalModules\ExternalModules::$settingsModule = $this->module;
         // Every normal field-rendering/search/settings-save entry point this
         // module exposes runs inside an actual project (a field can't exist
         // outside one) - default the fake's ambient project context to
@@ -894,6 +895,35 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->assertSame('descriptive', $settings[0]['type']);
         $this->assertStringContainsString('test-cat', $settings[0]['name']);
         $this->assertSame('project-category-list', $settings[1]['key']);
+    }
+
+    /**
+     * The real framework's getProjectSetting() falls back to the system value
+     * of the same key, so a site-level pending reminder must not be read as
+     * the project's own.
+     */
+    public function testProjectPendingIgnoresSiteLevelPending(): void
+    {
+        $this->module->setSystemSetting('cache-refresh-pending', json_encode(['site-cat']));
+
+        $this->assertSame([], $this->module->getCacheRefreshPending('42'));
+        $this->assertSame(['site-cat'], $this->module->getCacheRefreshPending(null));
+    }
+
+    public function testProjectConfigurationShowsNoSiteLevelReminder(): void
+    {
+        $this->module->setSystemSetting('cache-refresh-pending', json_encode(['site-cat']));
+        $original = [['key' => 'project-category-list', 'name' => 'List of Ontologies for the project']];
+
+        $this->assertSame($original, $this->module->redcap_module_configuration_settings('42', $original));
+    }
+
+    public function testProjectPendingStillReadWhenSiteLevelPendingAlsoSet(): void
+    {
+        $this->module->setSystemSetting('cache-refresh-pending', json_encode(['site-cat']));
+        $this->module->setProjectSetting('cache-refresh-pending', json_encode(['test-cat']));
+
+        $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending('42'));
     }
 
     public function testConfigurationSettingsUnchangedWhenNothingPending(): void
