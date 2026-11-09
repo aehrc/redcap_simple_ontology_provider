@@ -28,8 +28,11 @@ namespace ExternalModules {
          */
         public array $projectSubSettingsByProject = [];
 
-        /** @var array<string, mixed> project-scoped module settings, keyed by setting key */
+        /** @var array<string, mixed> project-scoped module settings for the ambient project, keyed by setting key */
         public array $projectSettings = [];
+
+        /** @var array<string, array<string, mixed>> project-scoped settings for projects OTHER than the ambient one, keyed by project id then setting key */
+        public array $projectSettingsByProject = [];
 
         /** @var array<string, mixed> system-scoped module settings, keyed by setting key */
         public array $systemSettings = [];
@@ -102,12 +105,31 @@ namespace ExternalModules {
          *  the same key when the project has none of its own. */
         public function getProjectSetting($key, $project_id = null)
         {
-            return $this->projectSettings[$key] ?? $this->systemSettings[$key] ?? null;
+            $own = &$this->projectSettingsFor($project_id);
+            return $own[$key] ?? $this->systemSettings[$key] ?? null;
         }
 
         public function setProjectSetting($key, $value, $project_id = null)
         {
-            $this->projectSettings[$key] = $value;
+            $own = &$this->projectSettingsFor($project_id);
+            $own[$key] = $value;
+        }
+
+        /** Like the real framework, a project setting needs a project: an
+         *  explicit id, or the ambient one. Unset, it throws. */
+        private function &projectSettingsFor($project_id)
+        {
+            $effectiveProjectId = $project_id !== null ? $project_id : $this->currentProjectId;
+            if (empty($effectiveProjectId)) {
+                throw new \Exception('The Project Id cannot be null!');
+            }
+            if ($project_id === null || (string)$project_id === (string)$this->currentProjectId) {
+                return $this->projectSettings;
+            }
+            if (!isset($this->projectSettingsByProject[$project_id])) {
+                $this->projectSettingsByProject[$project_id] = [];
+            }
+            return $this->projectSettingsByProject[$project_id];
         }
 
         public function getSystemSetting($key)

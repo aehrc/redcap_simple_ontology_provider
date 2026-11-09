@@ -1140,7 +1140,7 @@ EOD;
     public function getCacheRefreshPending($projectId)
     {
         $raw = $projectId
-            ? $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING)
+            ? $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId)
             : $this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING);
         $list = json_decode((string)$raw, true);
         return is_array($list) ? $list : [];
@@ -1151,7 +1151,7 @@ EOD;
         $categories = array_values(array_unique($categories));
         $value = empty($categories) ? null : json_encode($categories);
         if ($projectId) {
-            $this->setProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $value);
+            $this->setProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $value, $projectId);
         } else {
             $this->setSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $value);
         }
