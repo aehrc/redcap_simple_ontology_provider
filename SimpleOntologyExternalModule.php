@@ -1142,7 +1142,9 @@ EOD;
         if ($projectId) {
             $raw = $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId);
             if ($raw === null) {
-                $raw = $this->migrateLegacyProjectPending($projectId);
+                // Re-read after: also picks up a concurrent request's migration.
+                $this->migrateLegacyProjectPending($projectId);
+                $raw = $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId);
             }
         } else {
             $raw = $this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING);
@@ -1158,29 +1160,24 @@ EOD;
      * framework fallback could copy site-level entries into a project's row,
      * and a name that isn't a project category is one of those (or gone).
      *
-     * @return string|null the migrated value, as getProjectSetting() would return it
+     * Reads the project's own row directly - getProjectSetting() would fall
+     * back to the site value - and writes the new key before removing the
+     * old one, so a failed write leaves the old row to migrate next time.
      */
     private function migrateLegacyProjectPending($projectId)
     {
-        // Cheap check first. getProjectSetting() falls back to the site
-        // value, so null here means neither a project nor a site row exists.
-        if ($this->getProjectSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $projectId) === null) {
-            return null;
-        }
-        // Then the project's own row only, without the site fallback.
-        $ownSettings = ExternalModules::getProjectSettingsAsArray($this->PREFIX, $projectId, false);
-        $legacyRaw = $ownSettings[self::SYSTEM_CACHE_REFRESH_PENDING]['value'] ?? null;
-        if ($legacyRaw === null) {
-            return null;
+        $result = ExternalModules::getSettings($this->PREFIX, [$projectId], [self::SYSTEM_CACHE_REFRESH_PENDING]);
+        $row = $result ? $result->fetch_assoc() : null;
+        if (!$row || $row['value'] === null) {
+            return;
         }
 
-        $legacy = json_decode((string)$legacyRaw, true);
+        $legacy = json_decode((string)$row['value'], true);
         $projectCategoryNames = array_column($this->getProjectCategories($projectId), 'category');
         $kept = is_array($legacy) ? array_values(array_intersect($legacy, $projectCategoryNames)) : [];
 
-        $this->removeProjectSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $projectId);
         $this->setCacheRefreshPending($projectId, $kept);
-        return empty($kept) ? null : json_encode(array_values(array_unique($kept)));
+        $this->removeProjectSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $projectId);
     }
 
     private function setCacheRefreshPending($projectId, array $categories)

@@ -931,9 +931,9 @@ final class SimpleOntologyExternalModuleTest extends TestCase
 
         $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending('42'));
 
-        $own = \ExternalModules\ExternalModules::getProjectSettingsAsArray($this->module->PREFIX, '42', false);
+        $own = $this->module->projectOwnSettings('42');
         $this->assertArrayNotHasKey('cache-refresh-pending', $own);
-        $this->assertSame(json_encode(['test-cat']), $own['project-cache-refresh-pending']['value']);
+        $this->assertSame(json_encode(['test-cat']), $own['project-cache-refresh-pending']);
     }
 
     public function testProjectPendingLegacyRowWithNoProjectCategoriesLeft(): void
@@ -942,7 +942,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->module->setProjectSetting('cache-refresh-pending', json_encode(['site-cat']), '42');
 
         $this->assertSame([], $this->module->getCacheRefreshPending('42'));
-        $this->assertSame([], \ExternalModules\ExternalModules::getProjectSettingsAsArray($this->module->PREFIX, '42', false));
+        $this->assertSame([], $this->module->projectOwnSettings('42'));
     }
 
     /** A site-level row under the old key is the system list, not a project's to migrate. */
@@ -952,7 +952,7 @@ final class SimpleOntologyExternalModuleTest extends TestCase
         $this->module->setSystemSetting('cache-refresh-pending', json_encode(['test-cat']));
 
         $this->assertSame([], $this->module->getCacheRefreshPending('42'));
-        $this->assertSame([], \ExternalModules\ExternalModules::getProjectSettingsAsArray($this->module->PREFIX, '42', false));
+        $this->assertSame([], $this->module->projectOwnSettings('42'));
         $this->assertSame(['test-cat'], $this->module->getCacheRefreshPending(null));
     }
 

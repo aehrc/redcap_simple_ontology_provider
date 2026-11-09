@@ -34,7 +34,7 @@ namespace ExternalModules {
 
     class ExternalModules {
         public static function hasModuleConfigurationUserRights($prefix) {}
-        public static function getProjectSettingsAsArray($moduleDirectoryPrefixes, $projectId, $includeSystemSettings = true) {}
+        public static function getSettings($moduleDirectoryPrefixes, $projectIds, $keys = []) {}
         public static function isSuperUser() {}
     }
 }

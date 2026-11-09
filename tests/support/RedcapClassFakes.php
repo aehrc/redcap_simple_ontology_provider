@@ -127,7 +127,7 @@ namespace ExternalModules {
         }
 
         /** The project's own settings only, with no system fallback - backs
-         *  the ExternalModules::getProjectSettingsAsArray() fake. */
+         *  the ExternalModules::getSettings() fake and test assertions. */
         public function projectOwnSettings($project_id)
         {
             return $this->projectSettingsFor($project_id);
@@ -276,30 +276,25 @@ namespace ExternalModules {
             return self::$moduleConfigurationUserRights[$prefix] ?? false;
         }
 
-        /** @var AbstractExternalModule|null the module whose settings getProjectSettingsAsArray() reads */
+        /** @var AbstractExternalModule|null the module whose settings getSettings() reads */
         public static $settingsModule = null;
 
-        /** Real return shape is [key => ['value' => ..., 'system_value' => ...]];
-         *  system rows are only included when $includeSystemSettings is true. */
-        public static function getProjectSettingsAsArray($moduleDirectoryPrefixes, $projectId, $includeSystemSettings = true)
+        /** Rows for the given projects only (no system rows unless asked
+         *  for), shaped like the real query result: project_id/key/value. */
+        public static function getSettings($moduleDirectoryPrefixes, $projectIds, $keys = [])
         {
-            if (!$projectId) {
-                throw new \Exception('The Project Id cannot be null!');
-            }
             $module = self::$settingsModule;
-            $settings = [];
-            if ($module === null || $moduleDirectoryPrefixes !== $module->PREFIX) {
-                return $settings;
-            }
-            if ($includeSystemSettings) {
-                foreach ($module->systemSettings as $key => $value) {
-                    $settings[$key] = ['value' => $value, 'system_value' => $value];
+            $rows = [];
+            if ($module !== null && in_array($module->PREFIX, (array)$moduleDirectoryPrefixes, true)) {
+                foreach ((array)$projectIds as $projectId) {
+                    foreach ($module->projectOwnSettings($projectId) as $key => $value) {
+                        if (empty($keys) || in_array($key, $keys, true)) {
+                            $rows[] = ['project_id' => $projectId, 'key' => $key, 'value' => $value, 'type' => 'string'];
+                        }
+                    }
                 }
             }
-            foreach ($module->projectOwnSettings($projectId) as $key => $value) {
-                $settings[$key] = ['value' => $value] + ($settings[$key] ?? []);
-            }
-            return $settings;
+            return new FakeQueryResult($rows);
         }
 
         public static function resetForTests(): void
