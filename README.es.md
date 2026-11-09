@@ -47,7 +47,7 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
  También se puede usar para seleccionar un valor predeterminado.
  * `Mensaje cuando no hay resultado` - El valor a mostrar para el valor especial devuelto si se habilita la opción `Responder que no se hallaron resultados`.
    Obligatorio cuando esa opción está marcada (puede dejarse en blanco en caso contrario); no puede contener HTML.
- * `Código cuando no hay resultado` - El valor a mostrar para el valor especial devuelto si se habilita la opción `Responder que no se hallaron resultados`.
+ * `Código cuando no hay resultado` - El código del valor especial devuelto si se habilita la opción `Responder que no se hallaron resultados`.
    Obligatorio cuando esa opción está marcada (puede dejarse en blanco en caso contrario); no puede contener HTML ni comillas.
  * `Opciones de valores` - Esto se usa para indicar cómo se presentarán los valores. Las opciones son:
     * `list` - Una lista de valores, separados por una línea nueva. El valor y la descripción son iguales.
