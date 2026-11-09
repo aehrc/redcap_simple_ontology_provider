@@ -93,13 +93,13 @@
 			{
 				"key" : "site-no-result-label",
                 "tt_name" : "site_no_result_label",
-				"name" : "No Results Label",
+				"name" : "No Results Label (required if 'Return No Results Found' is checked)",
 				"type" : "text"
 			},
 			{
 				"key" : "site-no-result-code",
                 "tt_name" : "site_no_result_code",
-				"name" : "No Results Code",
+				"name" : "No Results Code (required if 'Return No Results Found' is checked)",
 				"type" : "text"
 			},
             {
@@ -191,13 +191,13 @@
 			{
 				"key" : "project-no-result-label",
                 "tt_name" : "project_no_result_label",
-				"name" : "No Results Label",
+				"name" : "No Results Label (required if 'Return No Results Found' is checked)",
 				"type" : "text"
 			},
 			{
 				"key" : "project-no-result-code",
                 "tt_name" : "project_no_result_code",
-				"name" : "No Results Code",
+				"name" : "No Results Code (required if 'Return No Results Found' is checked)",
 				"type" : "text"
 			},
             {

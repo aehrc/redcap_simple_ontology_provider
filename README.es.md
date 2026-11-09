@@ -46,7 +46,9 @@ No hay límite en el número de ontologías que puede agregar, usando los siguie
  El propósito de esto es permitir que se seleccione la opción y luego activar un campo adicional a través de lógica de ramificación para recibir datos adicionales.
  También se puede usar para seleccionar un valor predeterminado.
  * `Mensaje cuando no hay resultado` - El valor a mostrar para el valor especial devuelto si se habilita la opción `Responder que no se hallaron resultados`.
+   Obligatorio cuando esa opción está marcada (puede dejarse en blanco en caso contrario); no puede contener HTML.
  * `Código cuando no hay resultado` - El valor a mostrar para el valor especial devuelto si se habilita la opción `Responder que no se hallaron resultados`.
+   Obligatorio cuando esa opción está marcada (puede dejarse en blanco en caso contrario); no puede contener HTML ni comillas.
  * `Opciones de valores` - Esto se usa para indicar cómo se presentarán los valores. Las opciones son:
     * `list` - Una lista de valores, separados por una línea nueva. El valor y la descripción son iguales.
     * `bar` - Una lista de códigos y descripciones usando '|' como separador. Cada uno está separado con una línea. OJO: la búsqueda se hace sobre la descripción, no sobre el código.
@@ -305,6 +307,10 @@ Ambas páginas funcionan igual: elija una categoría, revise las entradas cuya e
 coincide con lo que la categoría define actualmente (un código que ya no existe en la categoría se
 deja intacto, ya que no hay un valor correcto con el cual reemplazarlo), y luego aplique la
 corrección a las que confirme.
+
+La actualización solo cambia el texto que REDCap muestra para un código. Nunca cambia el código
+guardado en un registro, así que un registro cuyo código haya editado o eliminado desde entonces
+conserva ese código anterior - actualice esos registros usted mismo si necesitan el nuevo.
 
 ![Página Refresh Ontology Cache mostrando los cambios de etiqueta propuestos](SimpleOntologyCacheRefreshPreview.png)
 

@@ -54,7 +54,9 @@ Any number of ontologies can be added, using the follow fields:
   are returned by a search. The purpose of this is to allow the option to be selected and then have an additional field
   get activated via branching logic to receive additional data. It can also be used to fall  back to some default value.
  * `No Results Label` - The display value for the special value returned if the `return no results found` option is enabled.
+   Required when that option is checked (it can be left blank otherwise); it cannot contain HTML.
  * `No Results Code` - The value for the special value returned if the `return no results found` option is enabled.
+   Required when that option is checked (it can be left blank otherwise); it cannot contain HTML or quotes.
  * `'No Results Found' result count` - An integer value indicating the search result count under which the special no
     result found value will be included in the results. For example a value of 5, would mean if the search found 5 or
     fewer matches than the no result value also appear in the search results. The search will only return a maximum of
@@ -298,6 +300,10 @@ Both pages work the same way: pick a category, preview the entries whose cached 
 matches what the category currently defines (a code that no longer exists in the category at all is
 left alone, since there is nothing correct to replace it with), then apply the correction to the
 ones you confirm.
+
+Refreshing only changes the display text REDCap shows for a code. It never changes the code saved in
+a record, so a record whose code you have since edited or removed keeps that old code - update those
+records yourself if they need the new one.
 
 ![Refresh Ontology Cache page previewing proposed label changes](SimpleOntologyCacheRefreshPreview.png)
 
