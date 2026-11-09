@@ -25,6 +25,7 @@ namespace ExternalModules {
         public function getSystemSetting($key) {}
         public function setSystemSetting($key, $value) {}
         public function removeSystemSetting($key) {}
+        public function disableUserBasedSettingPermissions() {}
         public function log($message, $parameters = []) {}
         public function isSuperUser() {}
 

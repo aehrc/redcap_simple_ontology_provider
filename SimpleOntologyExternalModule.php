@@ -53,6 +53,9 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
     const SYSTEM_CACHE_REFRESH_PENDING = 'system-cache-refresh-pending';
     const PROJECT_CACHE_REFRESH_PENDING = 'cache-refresh-pending';
 
+    /** Set once this request has checked for the legacy site row - see migrateLegacySystemPending(). */
+    private $legacySystemPendingChecked = false;
+
     public function __construct()
     {
         parent::__construct();
@@ -1142,11 +1145,20 @@ EOD;
         // Before any project read: an old site row under the project key
         // would otherwise be read through the framework's fallback.
         $this->migrateLegacySystemPending();
-        $raw = $projectId
-            ? $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId)
-            : $this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING);
-        $list = json_decode((string)$raw, true);
-        return is_array($list) ? $list : [];
+        if (!$projectId) {
+            $list = json_decode((string)$this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING), true);
+            return is_array($list) ? $list : [];
+        }
+
+        $list = json_decode((string)$this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId), true);
+        if (!is_array($list)) {
+            return [];
+        }
+        // Only the project's own categories: anything else can't be refreshed
+        // from the project page, and includes site names the old shared-key
+        // fallback copied into project rows.
+        $projectCategoryNames = array_column($this->getProjectCategories($projectId), 'category');
+        return array_values(array_intersect($list, $projectCategoryNames));
     }
 
     private function setCacheRefreshPending($projectId, array $categories)
@@ -1164,15 +1176,26 @@ EOD;
      * Move a site list saved before the key split (the system row under
      * 'cache-refresh-pending', now the project key) to its own key. Based on
      * what's stored rather than an upgrade hook, as the framework docs advise;
-     * once moved, this is a single system-setting read. The new key is written
-     * before the old row is removed, so a failed write is retried next read.
+     * once moved, this is one system-setting read per request. The new key is
+     * written before the old row is removed, so a failed write is retried.
      */
     private function migrateLegacySystemPending()
     {
+        if ($this->legacySystemPendingChecked) {
+            return;
+        }
+        $this->legacySystemPendingChecked = true;
+
         $legacyRaw = $this->getSystemSetting(self::PROJECT_CACHE_REFRESH_PENDING);
         if ($legacyRaw === null) {
             return;
         }
+        // The first read can come from a module page (the project refresh
+        // page), where the framework's user-based setting permissions are on
+        // and a non-superuser may not write system settings. Hooks, ajax and
+        // the API already run with them off; who may open the page is decided
+        // by redcap_module_link_check_display().
+        $this->disableUserBasedSettingPermissions();
         $legacy = json_decode((string)$legacyRaw, true);
         $current = json_decode((string)$this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING), true);
         $merged = array_merge(is_array($current) ? $current : [], is_array($legacy) ? $legacy : []);

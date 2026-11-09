@@ -120,18 +120,6 @@ namespace ExternalModules {
             }
         }
 
-        public function removeProjectSetting($key, $project_id = null)
-        {
-            $own = &$this->projectSettingsFor($project_id);
-            unset($own[$key]);
-        }
-
-        /** The project's own settings only, with no system fallback - for test assertions. */
-        public function projectOwnSettings($project_id)
-        {
-            return $this->projectSettingsFor($project_id);
-        }
-
         /** Like the real framework, a project setting needs a project: an
          *  explicit id, or the ambient one. Unset, it throws. */
         private function &projectSettingsFor($project_id)
@@ -154,9 +142,29 @@ namespace ExternalModules {
             return $this->systemSettings[$key] ?? null;
         }
 
+        /**
+         * The framework's user-based setting permissions: off inside hooks,
+         * ajax and API calls (this fake's default), on for module pages. While
+         * on, a non-superuser can't write system settings.
+         */
+        public bool $userBasedSettingPermissions = false;
+
+        public function disableUserBasedSettingPermissions()
+        {
+            $this->userBasedSettingPermissions = false;
+        }
+
+        private function ensureSystemSettingWriteAllowed()
+        {
+            if ($this->userBasedSettingPermissions && !ExternalModules::$isSuperUser) {
+                throw new \Exception("You don't have permission to save system settings!");
+            }
+        }
+
         /** Like the real framework, setting null deletes the row. */
         public function setSystemSetting($key, $value)
         {
+            $this->ensureSystemSettingWriteAllowed();
             if ($value === null) {
                 unset($this->systemSettings[$key]);
             } else {
@@ -166,6 +174,7 @@ namespace ExternalModules {
 
         public function removeSystemSetting($key)
         {
+            $this->ensureSystemSettingWriteAllowed();
             unset($this->systemSettings[$key]);
         }
 
