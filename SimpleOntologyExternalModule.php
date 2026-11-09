@@ -44,14 +44,14 @@ class SimpleOntologyExternalModule extends AbstractExternalModule implements \On
     /**
      * Categories flagged as possibly needing a cache refresh, one list per
      * scope. The keys must differ: the framework's getProjectSetting() falls
-     * back to the system value of the same key when a project has none, so a
-     * shared key showed the site-level reminder in every project. Before the
-     * split both scopes used 'cache-refresh-pending'; a project row still
-     * under that key is migrated on first read - see
-     * migrateLegacyProjectPending().
+     * back to the system value of the same key when a project has none, so
+     * when both scopes used 'cache-refresh-pending' the site-level reminder
+     * showed in every project without a list of its own. The site list moved
+     * to its own key (see migrateLegacySystemPending()); project lists stay
+     * where they were.
      */
-    const SYSTEM_CACHE_REFRESH_PENDING = 'cache-refresh-pending';
-    const PROJECT_CACHE_REFRESH_PENDING = 'project-cache-refresh-pending';
+    const SYSTEM_CACHE_REFRESH_PENDING = 'system-cache-refresh-pending';
+    const PROJECT_CACHE_REFRESH_PENDING = 'cache-refresh-pending';
 
     public function __construct()
     {
@@ -1139,45 +1139,14 @@ EOD;
      */
     public function getCacheRefreshPending($projectId)
     {
-        if ($projectId) {
-            $raw = $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId);
-            if ($raw === null) {
-                // Re-read after: also picks up a concurrent request's migration.
-                $this->migrateLegacyProjectPending($projectId);
-                $raw = $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId);
-            }
-        } else {
-            $raw = $this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING);
-        }
+        // Before any project read: an old site row under the project key
+        // would otherwise be read through the framework's fallback.
+        $this->migrateLegacySystemPending();
+        $raw = $projectId
+            ? $this->getProjectSetting(self::PROJECT_CACHE_REFRESH_PENDING, $projectId)
+            : $this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING);
         $list = json_decode((string)$raw, true);
         return is_array($list) ? $list : [];
-    }
-
-    /**
-     * Move a project's pending list saved before the key split (under the
-     * shared 'cache-refresh-pending' key) to its own key, and remove the old
-     * row. Only names that are still project categories are kept: the old
-     * framework fallback could copy site-level entries into a project's row,
-     * and a name that isn't a project category is one of those (or gone).
-     *
-     * Reads the project's own row directly - getProjectSetting() would fall
-     * back to the site value - and writes the new key before removing the
-     * old one, so a failed write leaves the old row to migrate next time.
-     */
-    private function migrateLegacyProjectPending($projectId)
-    {
-        $result = ExternalModules::getSettings($this->PREFIX, [$projectId], [self::SYSTEM_CACHE_REFRESH_PENDING]);
-        $row = $result ? $result->fetch_assoc() : null;
-        if (!$row || $row['value'] === null) {
-            return;
-        }
-
-        $legacy = json_decode((string)$row['value'], true);
-        $projectCategoryNames = array_column($this->getProjectCategories($projectId), 'category');
-        $kept = is_array($legacy) ? array_values(array_intersect($legacy, $projectCategoryNames)) : [];
-
-        $this->setCacheRefreshPending($projectId, $kept);
-        $this->removeProjectSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $projectId);
     }
 
     private function setCacheRefreshPending($projectId, array $categories)
@@ -1189,6 +1158,26 @@ EOD;
         } else {
             $this->setSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING, $value);
         }
+    }
+
+    /**
+     * Move a site list saved before the key split (the system row under
+     * 'cache-refresh-pending', now the project key) to its own key. Based on
+     * what's stored rather than an upgrade hook, as the framework docs advise;
+     * once moved, this is a single system-setting read. The new key is written
+     * before the old row is removed, so a failed write is retried next read.
+     */
+    private function migrateLegacySystemPending()
+    {
+        $legacyRaw = $this->getSystemSetting(self::PROJECT_CACHE_REFRESH_PENDING);
+        if ($legacyRaw === null) {
+            return;
+        }
+        $legacy = json_decode((string)$legacyRaw, true);
+        $current = json_decode((string)$this->getSystemSetting(self::SYSTEM_CACHE_REFRESH_PENDING), true);
+        $merged = array_merge(is_array($current) ? $current : [], is_array($legacy) ? $legacy : []);
+        $this->setCacheRefreshPending(null, $merged);
+        $this->removeSystemSetting(self::PROJECT_CACHE_REFRESH_PENDING);
     }
 
     private function clearCacheRefreshPending($projectId, $category)
